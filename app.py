@@ -1605,31 +1605,12 @@ elif menu == "Excel / CSV Import":
             st.markdown('<div class="section-title">Database Synchronization & Persistence</div>', unsafe_allow_html=True)
             st.caption("Commit all rows and synchronized schedule dates directly into the database.")
 
-            col_btn1, col_btn2 = st.columns([1, 1])
+            col_btn1, col_btn2 = st.columns([2, 1])
             with col_btn1:
-                confirm_import_all = st.button("Commit ALL Staged Records", type="primary", use_container_width=True)
-            with col_btn2:
-                sel_commit_options = {f"{item['trainee_id']} - {item['trainee_name']}": item['trainee_id'] for item in preview_items}
-                selected_commit_labels = st.multiselect(
-                    "Or Select Specific Employees to Save Only:",
-                    options=list(sel_commit_options.keys()),
-                    placeholder="Choose employees to save..."
-                )
-                confirm_import_sel = st.button("Save Selected Only", type="secondary", use_container_width=True)
+                confirm_import = st.button("Commit Valid Records & Synchronize Schedules", type="primary", use_container_width=True)
 
-            if confirm_import_all or confirm_import_sel:
-                if confirm_import_sel and not selected_commit_labels:
-                    st.warning("Please select at least one employee from the dropdown above to save.")
-                    st.stop()
-                
-                df_to_save = st.session_state.import_df
-                if confirm_import_sel:
-                    allowed_ids = {sel_commit_options[lbl] for lbl in selected_commit_labels}
-                    # Filter df_to_save to only allowed_ids
-                    mask = df_to_save.apply(lambda row: any(str(v).strip() in allowed_ids for v in row.values), axis=1)
-                    df_to_save = df_to_save[mask]
-
-                summary = importer.import_trainees(df_to_save)
+            if confirm_import:
+                summary = importer.import_trainees(st.session_state.import_df)
 
                 if st.session_state.import_overrides:
                     for ov_id, stg_map in st.session_state.import_overrides.items():

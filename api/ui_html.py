@@ -537,79 +537,6 @@ def get_client_ui_html() -> str:
             background: #FFFFFF;
             color: var(--primary);
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        /* MILESTONE GRID & DATE CHIPS IN DIRECTORY */
-        .milestone-grid-layout {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(95px, 1fr));
-            gap: 5px;
-            min-width: 310px;
-        }
-
-        .milestone-date-chip {
-            padding: 4px 6px;
-            border-radius: 6px;
-            font-size: 11px;
-            background: #F8FAFC;
-            border: 1px solid #E2E8F0;
-            line-height: 1.25;
-            transition: all 0.15s ease;
-        }
-
-        .milestone-date-chip:hover {
-            border-color: #94A3B8;
-        }
-
-        .milestone-date-chip.sched {
-            background: #EFF6FF;
-            border-color: #BFDBFE;
-            color: #1E40AF;
-        }
-
-        .milestone-date-chip.sent {
-            background: #F3E8FF;
-            border-color: #DDD6FE;
-            color: #6B21A8;
-        }
-
-        .milestone-date-chip.cust {
-            background: #FFFBEB;
-            border-color: #FDE68A;
-            color: #92400E;
-        }
-
-        .milestone-date-chip.opt {
-            background: #F1F5F9;
-            border-color: #E2E8F0;
-            color: #94A3B8;
-        }
-
-        .milestone-date-chip.canc {
-            background: #FEF2F2;
-            border-color: #FECACA;
-            color: #991B1B;
-        }
-
-        .m-chip-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 10px;
-            font-weight: 700;
-            margin-bottom: 2px;
-        }
-
-        .m-chip-date {
-            font-weight: 700;
-            font-size: 11px;
-            font-family: var(--font-mono);
-        }
-
-        .m-chip-status {
-            font-size: 8.5px;
-            font-weight: 600;
-            padding: 1px 3px;
-            border-radius: 3px;
-            background: rgba(0, 0, 0, 0.06);
         }
 
         /* MILESTONE STEPPER PILLS */
@@ -1069,18 +996,6 @@ def get_client_ui_html() -> str:
                 </div>
             </div>
 
-            <!-- EPHEMERAL SQLITE BANNER (Active only when on SQLite in Vercel/Cloud) -->
-            <div id="bannerEphemeralDb" style="display:none; background:#FFFBEB; border:1px solid #FCD34D; border-radius:10px; padding:14px 18px; margin-bottom:20px; font-size:13px; color:#92400E; align-items:center; justify-content:space-between; gap:16px;">
-                <div style="display:flex; align-items:flex-start; gap:10px;">
-                    <span style="font-size:18px;">ℹ️</span>
-                    <div>
-                        <strong>Notice on Apprentice Persistence:</strong> The portal is currently running on temporary SQLite storage. On Vercel Serverless, temporary containers periodically reset when idle, which causes existing trainees to start as fresh.
-                        <div style="margin-top:3px; color:#B45309; font-size:12px;">To retain trainees permanently across all browser reloads, configure a free cloud PostgreSQL connection string (from <strong>Neon.tech</strong> or <strong>Supabase</strong>) as <code>POSTGRES_URL</code> in your Vercel Environment Variables.</div>
-                    </div>
-                </div>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="switchView('settings')" style="white-space:nowrap; background:#fff;">Storage Guide</button>
-            </div>
-
             <!-- DISPATCH WORKER TRIGGER PANEL -->
             <div class="card-panel">
                 <div class="card-header">
@@ -1315,19 +1230,19 @@ def get_client_ui_html() -> str:
                             <thead>
                                 <tr>
                                     <th style="width:40px;"><input type="checkbox" id="checkAllStaged" onchange="toggleSelectAllStaged(this)"></th>
-                                    <th style="width:115px; text-align:center;">Edit Dates</th>
                                     <th>Trainee ID</th>
-                                    <th>Apprentice Name</th>
+                                    <th>Name</th>
                                     <th>DOJ</th>
                                     <th>LWD</th>
                                     <th>Status</th>
                                     <th>Type</th>
-                                    <th>Initial (15d)</th>
-                                    <th>Q1 (3m)</th>
-                                    <th>Q2 (6m)</th>
-                                    <th>Q3 (9m)</th>
-                                    <th>Q4 (12m)</th>
-                                    <th>Exit (3m)</th>
+                                    <th>Initial</th>
+                                    <th>Q1</th>
+                                    <th>Q2</th>
+                                    <th>Q3</th>
+                                    <th>Q4</th>
+                                    <th>Exit</th>
+                                    <th style="text-align:center;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -1562,8 +1477,6 @@ def get_client_ui_html() -> str:
                 </div>
             </form>
         </div>
-    </div>
-
     <!-- ======================================================================= -->
     <!-- 6. EDIT STAGED APPRENTICE & DATES MODAL                                 -->
     <!-- ======================================================================= -->
@@ -1580,11 +1493,11 @@ def get_client_ui_html() -> str:
                 <div class="form-row" style="margin-bottom:14px;">
                     <div class="form-group">
                         <label class="form-label">Trainee ID</label>
-                        <input type="text" id="stagedModalTraineeId" class="form-control" readonly style="background:#F1F5F9; font-weight:600;">
+                        <input type="text" id="stagedModalId" class="form-control" readonly style="background:#F1F5F9; font-weight:600;">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Full Name</label>
-                        <input type="text" id="stagedModalTraineeName" class="form-control" readonly style="background:#F1F5F9; font-weight:600;">
+                        <input type="text" id="stagedModalName" class="form-control" readonly style="background:#F1F5F9; font-weight:600;">
                     </div>
                 </div>
 
@@ -1798,20 +1711,6 @@ def get_client_ui_html() -> str:
             const dateInput = document.getElementById("workerTargetDate");
             if (dateInput) dateInput.value = today;
 
-            // Global backdrop click to dismiss modals without reloading
-            document.addEventListener("click", (e) => {
-                if (e.target && e.target.classList && e.target.classList.contains("modal-overlay")) {
-                    e.target.classList.remove("open");
-                }
-            });
-
-            // Escape key listener to dismiss any open modal
-            document.addEventListener("keydown", (e) => {
-                if (e.key === "Escape" || e.keyCode === 27) {
-                    document.querySelectorAll(".modal-overlay.open").forEach(m => m.classList.remove("open"));
-                }
-            });
-
             if (authToken) {
                 verifySessionAndBoot();
             } else {
@@ -1857,7 +1756,7 @@ def get_client_ui_html() -> str:
                     currentUser = data.username;
                     document.getElementById("sidebarUsername").innerText = currentUser;
                     document.getElementById("loginGate").style.display = "none";
-                    updateDbChip(data.database_engine, data.db_error);
+                    updateDbChip(data.database_engine);
                     loadDashboardStats();
                     loadQueue();
                 } else {
@@ -1872,55 +1771,26 @@ def get_client_ui_html() -> str:
             document.getElementById("loginGate").style.display = "flex";
         }
 
-        function updateDbChip(engine, dbError) {
+        function updateDbChip(engine) {
             const chip = document.getElementById("chipDatabase");
             const settingsBadge = document.getElementById("settingsDbBadge");
             const settingsDesc = document.getElementById("settingsDbDesc");
-            const banner = document.getElementById("bannerEphemeralDb");
-
             if (engine === "postgres") {
                 chip.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg> Database: PostgreSQL (Persistent)`;
                 chip.className = "chip-meta postgres";
                 if (settingsBadge) {
                     settingsBadge.innerText = "PostgreSQL (Cloud Persistent)";
                     settingsBadge.className = "badge badge-scheduled";
-                    settingsDesc.innerText = "Connected to persistent cloud PostgreSQL (Neon / Supabase / Vercel Postgres). Data persists permanently across all deployments and reloads.";
-                }
-                if (banner) banner.style.display = "none";
-            } else if (dbError) {
-                chip.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Database: Error (SQLite Fallback)`;
-                chip.className = "chip-meta";
-                if (settingsBadge) {
-                    settingsBadge.innerText = "PostgreSQL Connection Error (Fallback to SQLite)";
-                    settingsBadge.className = "badge badge-cancelled";
-                    settingsDesc.innerText = `DATABASE_URL was configured, but connection failed: ${dbError}. Running in SQLite fallback.`;
-                }
-                if (banner) {
-                    banner.style.display = "flex";
-                    banner.style.background = "#FEF2F2";
-                    banner.style.borderColor = "#F87171";
-                    banner.style.color = "#991B1B";
-                    banner.innerHTML = `
-                        <div style="display:flex; align-items:flex-start; gap:10px;">
-                            <span style="font-size:18px;">⚠️</span>
-                            <div>
-                                <strong>DATABASE_URL Connection Error:</strong> System detected DATABASE_URL in Vercel, but failed to connect to PostgreSQL:
-                                <div style="font-family:var(--font-mono); font-size:11.5px; margin-top:4px; padding:4px 8px; background:rgba(0,0,0,0.06); border-radius:4px; word-break:break-all;">${escapeHtml(dbError)}</div>
-                                <div style="margin-top:4px; font-size:12px;">Running on fallback SQLite. Please check your connection URL and credentials in Vercel Environment Variables.</div>
-                            </div>
-                        </div>
-                        <button type="button" class="btn btn-secondary btn-sm" onclick="switchView('settings')" style="white-space:nowrap; background:#fff;">Storage Settings</button>
-                    `;
+                    settingsDesc.innerText = "Connected to persistent cloud PostgreSQL (Neon / Supabase / Vercel Postgres). Data persists across all deployments.";
                 }
             } else {
-                chip.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg> Database: SQLite (Temporary / Local)`;
+                chip.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg> Database: SQLite (Local)`;
                 chip.className = "chip-meta";
                 if (settingsBadge) {
-                    settingsBadge.innerText = "SQLite (Local / Ephemeral)";
+                    settingsBadge.innerText = "SQLite (Local File)";
                     settingsBadge.className = "badge badge-optout";
-                    settingsDesc.innerText = "Operating on local SQLite. On Vercel Serverless containers, local /tmp data resets between idle instances. Add DATABASE_URL to your Vercel Environment Variables to retain trainees permanently.";
+                    settingsDesc.innerText = "Operating on local SQLite file. Suitable for local testing and developer workstations.";
                 }
-                if (banner) banner.style.display = "flex";
             }
         }
 
@@ -1950,7 +1820,7 @@ def get_client_ui_html() -> str:
                     localStorage.setItem("naps_admin_user", currentUser);
                     document.getElementById("sidebarUsername").innerText = currentUser;
                     document.getElementById("loginGate").style.display = "none";
-                    updateDbChip(data.database_engine, data.db_error);
+                    updateDbChip(data.database_engine);
                     loadDashboardStats();
                     loadQueue();
                     showToast("Administrator signed in successfully.", "success");
@@ -2081,7 +1951,6 @@ def get_client_ui_html() -> str:
         }
 
         function formatStageLabel(stg) {
-            const key = String(stg || "").toLowerCase();
             const map = {
                 "initial": "Initial Welcome (DOJ+15d)",
                 "q1": "Quarterly Assessment 1 (DOJ+3m)",
@@ -2090,7 +1959,7 @@ def get_client_ui_html() -> str:
                 "q4": "Quarterly Assessment 4 (DOJ+12m)",
                 "exit": "Exit Feedback (LWD+3m)"
             };
-            return map[key] || stg;
+            return map[stg] || stg;
         }
 
         // TRIGGER WORKER CYCLE
@@ -2184,8 +2053,8 @@ def get_client_ui_html() -> str:
                             <th>Reporting Manager</th>
                             <th style="text-align:center;">Status</th>
                             <th>Tenure</th>
-                            <th>Milestone Schedule Timeline (All 6 Stages)</th>
-                            <th style="text-align:center; min-width:140px;">Actions</th>
+                            <th>Milestone Progress Tracker</th>
+                            <th style="text-align:center; width:130px;">Actions</th>
                         </tr>
                     `;
                 }
@@ -2194,42 +2063,46 @@ def get_client_ui_html() -> str:
                     const row = document.createElement("tr");
                     const statusBadge = t.status === "Active" ? "badge-active" : (t.status === "Left" ? "badge-left" : "badge-scheduled");
 
-                    function renderMilestoneChip(label, s) {
-                        if (!s) return `<div class="milestone-date-chip opt" style="text-align:center;"><div class="m-chip-header"><span>${label}</span></div><div class="m-chip-date" style="color:#94A3B8;">-</div></div>`;
-                        const d = s.scheduled_date || s.scheduled_date_raw || "-";
-                        let cls = "sched";
-                        let statusTxt = "";
-                        if (s.status === "Sent") { cls = "sent"; statusTxt = "Sent"; }
-                        else if (s.is_opted_out) { cls = "opt"; statusTxt = "Opt-Out"; }
-                        else if (s.status === "Cancelled") { cls = "canc"; statusTxt = "Cancelled"; }
-                        else if (s.is_custom_date) { cls = "cust"; statusTxt = "Custom"; }
-
-                        return `
-                            <div class="milestone-date-chip ${cls}" title="${label} (${d}) • Status: ${s.status}">
-                                <div class="m-chip-header">
-                                    <span>${label}</span>
-                                    ${statusTxt ? `<span class="m-chip-status">${statusTxt}</span>` : ''}
-                                </div>
-                                <div class="m-chip-date" ${s.is_opted_out ? 'style="text-decoration:line-through;"' : ''}>${d}</div>
-                            </div>
-                        `;
+                    function renderStepperNode(label, s) {
+                        if (!s) return `<span class="stepper-node stg-optout" title="${label}: Not configured">${label}</span>`;
+                        let cls = "stg-scheduled";
+                        let tip = `${label} (${s.scheduled_date}) • Status: ${s.status}`;
+                        if (s.status === "Sent") {
+                            cls = "stg-sent";
+                            tip = `${label} (${s.scheduled_date}) • Sent [Simulated]`;
+                        } else if (s.is_opted_out) {
+                            cls = "stg-optout";
+                            tip = `${label} (${s.scheduled_date}) • Opted Out`;
+                        } else if (s.status === "Cancelled") {
+                            cls = "stg-cancelled";
+                            tip = `${label} (${s.scheduled_date}) • Cancelled`;
+                        } else if (s.is_custom_date) {
+                            cls = "stg-custom";
+                            tip = `${label} (${s.scheduled_date}) • Custom Date`;
+                        }
+                        return `<span class="stepper-node ${cls}" title="${tip}">${label}</span>`;
                     }
 
                     const stg = t.stages || {};
-                    const milestoneGridHtml = `
-                        <div class="milestone-grid-layout">
-                            ${renderMilestoneChip("Initial (15d)", stg.initial || stg.INITIAL)}
-                            ${renderMilestoneChip("Q1 (3m)", stg.q1 || stg.Q1)}
-                            ${renderMilestoneChip("Q2 (6m)", stg.q2 || stg.Q2)}
-                            ${renderMilestoneChip("Q3 (9m)", stg.q3 || stg.Q3)}
-                            ${renderMilestoneChip("Q4 (12m)", stg.q4 || stg.Q4)}
-                            ${renderMilestoneChip("Exit (3m)", stg.exit || stg.EXIT)}
+                    const stepperHtml = `
+                        <div class="milestone-stepper" title="Click 'View' for full date timeline">
+                            ${renderStepperNode("Init", stg.initial)}
+                            <span style="color:#CBD5E1; font-size:10px;">›</span>
+                            ${renderStepperNode("Q1", stg.q1)}
+                            <span style="color:#CBD5E1; font-size:10px;">›</span>
+                            ${renderStepperNode("Q2", stg.q2)}
+                            <span style="color:#CBD5E1; font-size:10px;">›</span>
+                            ${renderStepperNode("Q3", stg.q3)}
+                            <span style="color:#CBD5E1; font-size:10px;">›</span>
+                            ${renderStepperNode("Q4", stg.q4)}
+                            <span style="color:#CBD5E1; font-size:10px;">›</span>
+                            ${renderStepperNode("Exit", stg.exit)}
                         </div>
                     `;
 
                     row.innerHTML = `
                         <td>
-                            <div style="font-weight:700; color:var(--primary); cursor:pointer;" data-id="${escapeHtml(t.trainee_id)}" onclick="openViewDossierModal(this.getAttribute('data-id'))" title="Click to view full dossier">
+                            <div style="font-weight:700; color:var(--primary); cursor:pointer;" onclick="openViewDossierModal('${t.trainee_id}')" title="Click to view full dossier">
                                 ${escapeHtml(t.trainee_name)}
                             </div>
                             <div style="font-size:11px; color:var(--text-muted); font-family:var(--font-mono); margin-top:1px;">
@@ -2261,12 +2134,12 @@ def get_client_ui_html() -> str:
                             </div>
                         </td>
                         <td>
-                            ${milestoneGridHtml}
+                            ${stepperHtml}
                         </td>
                         <td style="text-align:center;">
-                            <div style="display:inline-flex; flex-direction:column; gap:5px;">
-                                <button type="button" class="btn btn-secondary btn-sm" data-id="${escapeHtml(t.trainee_id)}" onclick="openViewDossierModal(this.getAttribute('data-id'))" title="View Full Profile">👁️ View</button>
-                                <button type="button" class="btn btn-primary btn-sm" data-id="${escapeHtml(t.trainee_id)}" onclick="openEditTraineeModal(this.getAttribute('data-id'))" title="Edit Profile & Dates">✏️ Edit Dates</button>
+                            <div style="display:inline-flex; gap:6px;">
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="openViewDossierModal('${t.trainee_id}')" title="View Full Profile">👁️ View</button>
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="openEditTraineeModal('${t.trainee_id}')" title="Edit Profile & Dates">✏️ Edit</button>
                             </div>
                         </td>
                     `;
@@ -2297,8 +2170,7 @@ def get_client_ui_html() -> str:
                     const row = document.createElement("tr");
 
                     function renderStageBadge(stgKey) {
-                        const stgObj = t.stages || {};
-                        const s = stgObj[stgKey] || stgObj[stgKey.toUpperCase()];
+                        const s = t.stages ? t.stages[stgKey] : null;
                         if (!s) return "-";
                         if (s.status === "Sent") return `<span class="badge badge-simulated">${s.scheduled_date} [Simulated]</span>`;
                         if (s.is_opted_out) return `<span class="badge badge-optout">${s.scheduled_date} [Opted Out]</span>`;
@@ -2312,7 +2184,7 @@ def get_client_ui_html() -> str:
                     row.innerHTML = `
                         <td><strong>${t.trainee_id}</strong></td>
                         <td>
-                            <div style="font-weight:700; color:var(--primary); cursor:pointer;" data-id="${escapeHtml(t.trainee_id)}" onclick="openViewDossierModal(this.getAttribute('data-id'))">
+                            <div style="font-weight:700; color:var(--primary); cursor:pointer;" onclick="openViewDossierModal('${t.trainee_id}')">
                                 ${escapeHtml(t.trainee_name)}
                             </div>
                             <div style="font-size:11px; color:var(--text-muted);">${escapeHtml(t.trainee_email)}</div>
@@ -2328,8 +2200,8 @@ def get_client_ui_html() -> str:
                         <td>${renderStageBadge("exit")}</td>
                         <td style="text-align:center;">
                             <div style="display:inline-flex; gap:6px;">
-                                <button type="button" class="btn btn-secondary btn-sm" data-id="${escapeHtml(t.trainee_id)}" onclick="openViewDossierModal(this.getAttribute('data-id'))" title="View Full Profile">👁️ View</button>
-                                <button type="button" class="btn btn-secondary btn-sm" data-id="${escapeHtml(t.trainee_id)}" onclick="openEditTraineeModal(this.getAttribute('data-id'))" title="Edit Profile & Dates">✏️ Edit</button>
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="openViewDossierModal('${t.trainee_id}')" title="View Full Profile">👁️ View</button>
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="openEditTraineeModal('${t.trainee_id}')" title="Edit Profile & Dates">✏️ Edit</button>
                             </div>
                         </td>
                     `;
@@ -2340,36 +2212,9 @@ def get_client_ui_html() -> str:
 
         // VIEW DOSSIER MODAL
         function openViewDossierModal(traineeId) {
-            if (!traineeId) return;
-            const t = (cachedTraineesList || []).find(x => String(x.trainee_id).trim() === String(traineeId).trim());
-            if (!t) {
-                openDossierFromApi(traineeId);
-                return;
-            }
-            populateDossierModal(t);
-        }
-
-        async function openDossierFromApi(traineeId) {
-            try {
-                showToast("Loading apprentice profile...", "info");
-                const res = await apiFetch(`/api/trainees/${encodeURIComponent(traineeId)}`);
-                if (!res.ok) throw new Error("Apprentice record not found");
-                const data = await res.json();
-                const t = data.trainee;
-                t.stages = {};
-                (data.schedules || []).forEach(s => {
-                    const k = (s.stage || "").toLowerCase();
-                    t.stages[k] = s;
-                    t.stages[s.stage] = s;
-                });
-                populateDossierModal(t);
-            } catch (err) {
-                showToast(err.message, "danger");
-            }
-        }
-
-        function populateDossierModal(t) {
-            currentDossierTraineeId = t.trainee_id;
+            const t = cachedTraineesList.find(x => x.trainee_id === traineeId);
+            if (!t) return;
+            currentDossierTraineeId = traineeId;
 
             document.getElementById("viewDossierName").innerText = t.trainee_name || "Apprentice Profile";
             document.getElementById("viewDossierId").innerText = `ID: ${t.trainee_id}`;
@@ -2403,7 +2248,7 @@ def get_client_ui_html() -> str:
             ];
 
             stagesConfig.forEach(cfg => {
-                const s = t.stages ? (t.stages[cfg.key] || t.stages[cfg.key.toUpperCase()]) : null;
+                const s = t.stages ? t.stages[cfg.key] : null;
                 const tr = document.createElement("tr");
                 if (s) {
                     let statusBadge = `<span class="badge badge-scheduled">${s.status}</span>`;
@@ -2416,7 +2261,7 @@ def get_client_ui_html() -> str:
                     tr.innerHTML = `
                         <td><strong>${cfg.name}</strong></td>
                         <td>${cfg.recip}</td>
-                        <td><strong>${s.scheduled_date || s.scheduled_date_raw || '-'}</strong></td>
+                        <td><strong>${s.scheduled_date}</strong></td>
                         <td>${statusBadge}</td>
                         <td>${typeBadge}</td>
                         <td>${optBadge}</td>
@@ -2446,14 +2291,8 @@ def get_client_ui_html() -> str:
 
         // EDIT TRAINEE MODAL
         async function openEditTraineeModal(traineeId) {
-            if (!traineeId) return;
             try {
-                showToast("Loading apprentice details...", "info");
-                const res = await apiFetch(`/api/trainees/${encodeURIComponent(traineeId)}`);
-                if (!res.ok) {
-                    const err = await res.json();
-                    throw new Error(err.detail || "Apprentice not found");
-                }
+                const res = await apiFetch(`/api/trainees/${traineeId}`);
                 const data = await res.json();
                 currentEditingTrainee = data;
 
@@ -2473,15 +2312,14 @@ def get_client_ui_html() -> str:
                 data.schedules.forEach(s => {
                     const row = document.createElement("tr");
                     const isSent = s.status === "Sent";
-                    const stageKey = (s.stage || "").toLowerCase();
                     row.innerHTML = `
-                        <td><strong>${formatStageLabel(stageKey)}</strong></td>
-                        <td><span class="badge ${s.status === 'Sent' ? 'badge-simulated' : (s.status === 'Cancelled' ? 'badge-cancelled' : 'badge-scheduled')}">${s.status}</span></td>
+                        <td><strong>${formatStageLabel(s.stage)}</strong></td>
+                        <td><span class="badge ${s.status === 'Sent' ? 'badge-simulated' : 'badge-scheduled'}">${s.status}</span></td>
                         <td>
-                            <input type="date" class="form-control" id="sched_date_${stageKey}" value="${s.scheduled_date_raw || uiDateToIso(s.scheduled_date) || ''}" ${isSent ? 'disabled' : ''}>
+                            <input type="date" class="form-control" id="sched_date_${s.stage}" value="${s.scheduled_date_raw || ''}" ${isSent ? 'disabled' : ''}>
                         </td>
                         <td style="text-align:center;">
-                            <input type="checkbox" id="sched_opt_${stageKey}" ${s.is_opted_out ? 'checked' : ''} ${isSent ? 'disabled' : ''}>
+                            <input type="checkbox" id="sched_opt_${s.stage}" ${s.is_opted_out ? 'checked' : ''} ${isSent ? 'disabled' : ''}>
                         </td>
                     `;
                     sTable.appendChild(row);
@@ -2516,7 +2354,6 @@ def get_client_ui_html() -> str:
             const actualLwd = document.getElementById("editActualLwd").value;
 
             try {
-                showToast("Saving apprentice changes...", "info");
                 // 1. Update basic info and status
                 const updatePayload = {
                     trainee_name: name,
@@ -2529,7 +2366,7 @@ def get_client_ui_html() -> str:
                     updatePayload.confirmed_actual_lwd = actualLwd;
                 }
 
-                const res = await apiFetch(`/api/trainees/${encodeURIComponent(tid)}`, {
+                const res = await apiFetch(`/api/trainees/${tid}`, {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(updatePayload)
@@ -2543,8 +2380,8 @@ def get_client_ui_html() -> str:
                 const schedPayload = { stages: {} };
                 const stages = ["initial", "q1", "q2", "q3", "q4", "exit"];
                 stages.forEach(stg => {
-                    const dateEl = document.getElementById(`sched_date_${stg}`) || document.getElementById(`sched_date_${stg.toUpperCase()}`);
-                    const optEl = document.getElementById(`sched_opt_${stg}`) || document.getElementById(`sched_opt_${stg.toUpperCase()}`);
+                    const dateEl = document.getElementById(`sched_date_${stg}`);
+                    const optEl = document.getElementById(`sched_opt_${stg}`);
                     if (dateEl && optEl && !dateEl.disabled) {
                         schedPayload.stages[stg] = {
                             scheduled_date: dateEl.value,
@@ -2553,18 +2390,14 @@ def get_client_ui_html() -> str:
                     }
                 });
 
-                const sRes = await apiFetch(`/api/trainees/${encodeURIComponent(tid)}/schedules`, {
+                await apiFetch(`/api/trainees/${tid}/schedules`, {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(schedPayload)
                 });
-                if (!sRes.ok) {
-                    const sErr = await sRes.json();
-                    throw new Error(sErr.detail || "Failed to update milestone schedules");
-                }
 
                 closeModal("modalEditTrainee");
-                showToast(`Apprentice '${tid}' updated successfully!`, "success");
+                showToast(`Apprentice '${tid}' updated successfully.`, "success");
                 loadTrainees();
                 loadDashboardStats();
             } catch (err) {
@@ -2812,35 +2645,17 @@ def get_client_ui_html() -> str:
 
             rows.forEach((r, idx) => {
                 const tr = document.createElement("tr");
-                const formatStagedCell = (stg) => {
-                    if (!stg) return "-";
-                    const isOpt = Boolean(stg.opt_out !== undefined ? stg.opt_out : stg.opted_out);
-                    const d = stg.date || "-";
-                    if (isOpt) {
-                        return `<span style="text-decoration:line-through; color:var(--text-muted);">${escapeHtml(d)}</span> <span class="badge badge-optout" style="font-size:10px; margin-left:4px;">Opt-out</span>`;
-                    }
-                    return escapeHtml(d);
-                };
-                const sInit = formatStagedCell(r.stages ? (r.stages.initial || r.stages.INITIAL) : null);
-                const sQ1 = formatStagedCell(r.stages ? (r.stages.q1 || r.stages.Q1) : null);
-                const sQ2 = formatStagedCell(r.stages ? (r.stages.q2 || r.stages.Q2) : null);
-                const sQ3 = formatStagedCell(r.stages ? (r.stages.q3 || r.stages.Q3) : null);
-                const sQ4 = formatStagedCell(r.stages ? (r.stages.q4 || r.stages.Q4) : null);
-                const sExit = formatStagedCell(r.stages ? (r.stages.exit || r.stages.EXIT) : null);
+                const sInit = (r.stages && r.stages.initial && r.stages.initial.date) ? r.stages.initial.date : "-";
+                const sQ1 = (r.stages && r.stages.q1 && r.stages.q1.date) ? r.stages.q1.date : "-";
+                const sQ2 = (r.stages && r.stages.q2 && r.stages.q2.date) ? r.stages.q2.date : "-";
+                const sQ3 = (r.stages && r.stages.q3 && r.stages.q3.date) ? r.stages.q3.date : "-";
+                const sQ4 = (r.stages && r.stages.q4 && r.stages.q4.date) ? r.stages.q4.date : "-";
+                const sExit = (r.stages && r.stages.exit && r.stages.exit.date) ? r.stages.exit.date : "-";
 
                 tr.innerHTML = `
-                    <td><input type="checkbox" class="staged-row-check" data-id="${escapeHtml(r.trainee_id)}" onchange="updateStagedSelectionCount()"></td>
-                    <td style="text-align:center;">
-                        <button type="button" class="btn btn-primary btn-sm" onclick="openEditStagedModal(${idx})" title="Edit DOJ, LWD or Milestone dates for this apprentice" style="font-weight:600; white-space:nowrap;">
-                            ✏️ Edit Dates
-                        </button>
-                    </td>
-                    <td><strong style="font-family:var(--font-mono);">${escapeHtml(r.trainee_id)}</strong></td>
-                    <td>
-                        <a href="javascript:void(0)" onclick="openEditStagedModal(${idx})" style="color:var(--primary); font-weight:700; text-decoration:none;" title="Click to edit dates for this apprentice">
-                            ${escapeHtml(r.trainee_name)} <span style="font-size:11px;">✏️</span>
-                        </a>
-                    </td>
+                    <td><input type="checkbox" class="staged-row-check" data-id="${r.trainee_id}" onchange="updateStagedSelectionCount()"></td>
+                    <td><strong>${escapeHtml(r.trainee_id)}</strong></td>
+                    <td>${escapeHtml(r.trainee_name)}</td>
                     <td><strong>${r.date_of_joining || '-'}</strong></td>
                     <td>${r.last_working_date || '-'}</td>
                     <td><span class="badge badge-scheduled">${r.status || 'Active'}</span></td>
@@ -2851,6 +2666,11 @@ def get_client_ui_html() -> str:
                     <td>${sQ3}</td>
                     <td>${sQ4}</td>
                     <td>${sExit}</td>
+                    <td style="text-align:center;">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="openEditStagedModal(${idx})" title="Edit DOJ, LWD or Milestone dates for this employee">
+                            ✏️ Edit Dates
+                        </button>
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -2895,11 +2715,11 @@ def get_client_ui_html() -> str:
 
             const stages = ["initial", "q1", "q2", "q3", "q4", "exit"];
             stages.forEach(stg => {
-                const sInfo = (r.stages && (r.stages[stg] || r.stages[stg.toUpperCase()])) ? (r.stages[stg] || r.stages[stg.toUpperCase()]) : {};
+                const sInfo = (r.stages && r.stages[stg]) ? r.stages[stg] : {};
                 const dtEl = document.getElementById(`staged_dt_${stg}`);
                 const optEl = document.getElementById(`staged_opt_${stg}`);
                 if (dtEl) dtEl.value = uiDateToIso(sInfo.date || "");
-                if (optEl) optEl.checked = Boolean(sInfo.opt_out !== undefined ? sInfo.opt_out : sInfo.opted_out);
+                if (optEl) optEl.checked = Boolean(sInfo.opted_out);
             });
 
             document.getElementById("modalEditStaged").classList.add("open");
@@ -2965,14 +2785,13 @@ def get_client_ui_html() -> str:
                 const optVal = document.getElementById(`staged_opt_${stg}`).checked;
                 r.stages[stg] = {
                     date: isoDateToUi(dtVal),
-                    opt_out: optVal,
                     opted_out: optVal
                 };
             });
 
             closeModal("modalEditStaged");
             renderStagedRows(stagedUploadRows);
-            showToast(`Updated dates and preferences for apprentice '${r.trainee_id}' in staging table.`, "success");
+            showToast(`Updated dates for apprentice '${r.trainee_id}' in staging table.`, "success");
         }
 
         function renderErrorRows(errors) {
