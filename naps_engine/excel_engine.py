@@ -219,8 +219,9 @@ class ExcelImporter:
                     file_path_or_buffer.seek(0)
                 df = pd.read_csv(file_path_or_buffer, dtype=str)
 
-        # Normalize column headers
+        # Normalize column headers and deduplicate keeping the last specified value
         df.columns = [normalize_column_name(c) for c in df.columns]
+        df = df.loc[:, ~df.columns.duplicated(keep="last")]
         return df
 
     def import_trainees(

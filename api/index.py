@@ -70,6 +70,7 @@ from naps_engine.excel_engine import (
     STAGE_COLUMN_MAP,
     export_trainees_dataframe,
     generate_template_dataframe,
+    normalize_column_name,
     preview_uploaded_schedules,
 )
 from naps_engine.mailer import Mailer
@@ -515,8 +516,16 @@ def list_all_trainees(
             if dept_filter and dept_filter != "All" and t.department != dept_filter:
                 continue
             if search:
-                q = search.lower().strip()
-                if not (q in t.trainee_id.lower() or q in t.trainee_name.lower() or q in t.trainee_email.lower() or q in t.department.lower()):
+                match_fields = [
+                    t.trainee_id or "",
+                    t.trainee_name or "",
+                    t.trainee_email or "",
+                    t.department or "",
+                    t.location or "",
+                    t.manager_name or "",
+                    t.manager_email or "",
+                ]
+                if not any(q in f.lower() for f in match_fields):
                     continue
 
             # Load schedules
@@ -978,10 +987,39 @@ def commit_import_rows(
         commit_dicts = []
         for r in rows_to_process:
             raw = r.get("raw_row")
-            if raw and isinstance(raw, dict):
-                commit_dicts.append(raw)
-            else:
-                commit_dicts.append(r)
+            raw_dict = dict(raw) if (raw and isinstance(raw, dict)) else {}
+            # Pre-normalize raw column names to prevent duplicate columns in DataFrame
+            commit_row = {}
+            for k, v in raw_dict.items():
+                norm_k = normalize_column_name(k)
+                commit_row[norm_k] = str(v).strip() if (v is not None and pd.notna(v)) else ""
+
+            # Overlay core profile attributes from staged row
+            for fld in ["trainee_id", "trainee_name", "trainee_email", "manager_name", "manager_email", "department", "location", "status"]:
+                if r.get(fld):
+                    commit_row[fld] = str(r[fld]).strip()
+
+            # Overlay edited tenure dates
+            if r.get("date_of_joining") and r.get("date_of_joining") != "-":
+                commit_row["date_of_joining"] = str(r["date_of_joining"]).strip()
+            if r.get("last_working_date") and r.get("last_working_date") != "-":
+                commit_row["last_working_date"] = str(r["last_working_date"]).strip()
+
+            # Overlay edited milestone stage dates and opt-out preferences
+            stages_map = r.get("stages", {})
+            for stage_enum, col_names in STAGE_COLUMN_MAP.items():
+                stg_key = stage_enum.value if hasattr(stage_enum, "value") else str(stage_enum)
+                stg_val = stages_map.get(stg_key) or stages_map.get(stg_key.lower()) or stages_map.get(stg_key.upper())
+                if stg_val and isinstance(stg_val, dict):
+                    d_str = stg_val.get("date")
+                    norm_date_col = normalize_column_name(col_names["scheduled_date"])
+                    norm_opt_col = normalize_column_name(col_names["opt_out"])
+                    if d_str and d_str != "-":
+                        commit_row[norm_date_col] = str(d_str).strip()
+                    if "opt_out" in stg_val:
+                        commit_row[norm_opt_col] = "True" if stg_val["opt_out"] else "False"
+
+            commit_dicts.append(commit_row)
 
         df_commit = pd.DataFrame(commit_dicts)
         summary = importer.import_trainees(df_commit)

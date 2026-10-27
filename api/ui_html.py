@@ -508,6 +508,126 @@ def get_client_ui_html() -> str:
             border: 1px solid #FECDD3;
         }
 
+        /* VIEW TOGGLE BUTTONS */
+        .view-toggle-group {
+            display: inline-flex;
+            background: #F1F5F9;
+            padding: 3px;
+            border-radius: var(--radius-md);
+            gap: 2px;
+            border: 1px solid var(--border-color);
+        }
+
+        .view-toggle-btn {
+            border: none;
+            background: transparent;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            border-radius: 6px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .view-toggle-btn.active {
+            background: #FFFFFF;
+            color: var(--primary);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        /* MILESTONE STEPPER PILLS */
+        .milestone-stepper {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            background: #F8FAFC;
+            padding: 3px 5px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .stepper-node {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10.5px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: transform 0.15s;
+        }
+
+        .stepper-node:hover {
+            transform: scale(1.05);
+        }
+
+        .stepper-node.stg-sent {
+            background: var(--simulation-bg);
+            color: var(--simulation);
+            border: 1px solid #DDD6FE;
+        }
+
+        .stepper-node.stg-scheduled {
+            background: #EFF6FF;
+            color: #1D4ED8;
+            border: 1px solid #BFDBFE;
+        }
+
+        .stepper-node.stg-custom {
+            background: #FFFBEB;
+            color: #B45309;
+            border: 1px solid #FDE68A;
+        }
+
+        .stepper-node.stg-optout {
+            background: #F1F5F9;
+            color: #94A3B8;
+            border: 1px solid #E2E8F0;
+        }
+
+        .stepper-node.stg-cancelled {
+            background: #FEF2F2;
+            color: #DC2626;
+            border: 1px solid #FECACA;
+        }
+
+        /* DOSSIER MODAL STYLING */
+        .dossier-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .dossier-card {
+            background: #F8FAFC;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 12px 14px;
+        }
+
+        .dossier-card .d-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 3px;
+        }
+
+        .dossier-card .d-val {
+            font-size: 13.5px;
+            font-weight: 600;
+            color: var(--text-main);
+            word-break: break-word;
+        }
+
         /* FORM INPUTS */
         .form-group {
             margin-bottom: 16px;
@@ -937,17 +1057,28 @@ def get_client_ui_html() -> str:
         <div id="view-directory" class="app-view">
             <div class="card-panel">
                 <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:20px; flex-wrap:wrap;">
-                    <div style="display:flex; align-items:center; gap:12px; flex:1; min-width:300px;">
-                        <input type="text" id="dirSearch" class="form-control" placeholder="Search by Trainee ID, Name, Department, or Email..." oninput="loadTrainees()">
-                        <select id="dirStatusFilter" class="form-control" style="width:160px;" onchange="loadTrainees()">
+                    <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:320px; flex-wrap:wrap;">
+                        <input type="text" id="dirSearch" class="form-control" style="flex:1; min-width:220px;" placeholder="Search ID, Name, Department, Location, Manager, Email..." oninput="loadTrainees()">
+                        <select id="dirStatusFilter" class="form-control" style="width:140px;" onchange="loadTrainees()">
                             <option value="All">All Statuses</option>
                             <option value="Active">Active</option>
                             <option value="Left">Left</option>
                             <option value="Completed">Completed</option>
                             <option value="On Roll">On Roll</option>
                         </select>
+                        <div class="view-toggle-group">
+                            <button type="button" class="view-toggle-btn active" id="btnToggleRoster" onclick="setDirectoryViewMode('roster')">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                                Roster View
+                            </button>
+                            <button type="button" class="view-toggle-btn" id="btnToggleMatrix" onclick="setDirectoryViewMode('matrix')">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                Milestone Matrix
+                            </button>
+                        </div>
                     </div>
                     <div style="display:flex; align-items:center; gap:10px;">
+                        <span id="dirCountBadge" style="font-size:12px; color:var(--text-muted); font-weight:600;">0 trainees</span>
                         <button class="btn btn-secondary btn-sm" onclick="exportData('csv')">Export CSV</button>
                         <button class="btn btn-secondary btn-sm" onclick="exportData('xlsx')">Export Excel (.xlsx)</button>
                     </div>
@@ -955,22 +1086,7 @@ def get_client_ui_html() -> str:
 
                 <div class="table-responsive">
                     <table class="data-table" id="tableTrainees">
-                        <thead>
-                            <tr>
-                                <th>Trainee ID</th>
-                                <th>Name</th>
-                                <th>Status</th>
-                                <th>DOJ</th>
-                                <th>LWD</th>
-                                <th>Initial (DOJ+15d)</th>
-                                <th>Q1 (DOJ+3m)</th>
-                                <th>Q2 (DOJ+6m)</th>
-                                <th>Q3 (DOJ+9m)</th>
-                                <th>Q4 (DOJ+12m)</th>
-                                <th>Exit (LWD+3m)</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
+                        <thead id="headTrainees"></thead>
                         <tbody>
                             <tr><td colspan="12" style="text-align:center; padding:20px;">Loading directory...</td></tr>
                         </tbody>
@@ -1089,16 +1205,23 @@ def get_client_ui_html() -> str:
 
                 <!-- STAGED ROWS CONTAINER -->
                 <div id="stagedContainer" style="display:none; margin-top:28px;">
-                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:12px;">
                         <div>
-                            <h4 style="font-size:15px; font-weight:700; color:var(--success);">
-                                Staged Valid Rows (<span id="stagedCount">0</span> records ready to commit)
+                            <h4 style="font-size:15px; font-weight:700; color:var(--success); margin-bottom:2px;">
+                                Staged Import Records (<span id="stagedCount">0</span> ready to commit)
                             </h4>
-                            <p style="font-size:12px; color:var(--text-muted);">Select rows to remove before committing to the database.</p>
+                            <p style="font-size:12px; color:var(--text-muted);">
+                                Click <strong>✏️ Edit Dates</strong> to customize DOJ or milestone dates for any employee, or select checkboxes to save specific employees.
+                            </p>
                         </div>
-                        <div style="display:flex; gap:10px;">
-                            <button class="btn btn-danger btn-sm" onclick="deleteSelectedStagedRows()">Remove Selected Rows</button>
-                            <button class="btn btn-primary" onclick="commitStagedRows()">Commit Valid Records to Database</button>
+                        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                            <button type="button" class="btn btn-danger btn-sm" onclick="deleteSelectedStagedRows()">🗑️ Remove Selected</button>
+                            <button type="button" class="btn btn-primary btn-sm" id="btnCommitSelected" onclick="commitStagedRows(true)">
+                                💾 Save Selected (<span id="selectedStagedBadge">0</span>)
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-sm" id="btnCommitAll" onclick="commitStagedRows(false)">
+                                💾 Save All (<span id="totalStagedBadge">0</span>)
+                            </button>
                         </div>
                     </div>
 
@@ -1119,6 +1242,7 @@ def get_client_ui_html() -> str:
                                     <th>Q3</th>
                                     <th>Q4</th>
                                     <th>Exit</th>
+                                    <th style="text-align:center;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -1353,6 +1477,178 @@ def get_client_ui_html() -> str:
                 </div>
             </form>
         </div>
+    <!-- ======================================================================= -->
+    <!-- 6. EDIT STAGED APPRENTICE & DATES MODAL                                 -->
+    <!-- ======================================================================= -->
+    <div id="modalEditStaged" class="modal-overlay">
+        <div class="modal-card" style="max-width:720px;">
+            <div class="modal-header">
+                <div>
+                    <h3 id="stagedModalTitle">Edit Staged Apprentice Dates</h3>
+                    <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">Adjust Date of Joining, Last Working Date, or individual stage dates before saving.</p>
+                </div>
+                <button class="btn-close-modal" onclick="closeModal('modalEditStaged')">&times;</button>
+            </div>
+            <form onsubmit="handleSaveStagedModal(event)">
+                <div class="form-row" style="margin-bottom:14px;">
+                    <div class="form-group">
+                        <label class="form-label">Trainee ID</label>
+                        <input type="text" id="stagedModalId" class="form-control" readonly style="background:#F1F5F9; font-weight:600;">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" id="stagedModalName" class="form-control" readonly style="background:#F1F5F9; font-weight:600;">
+                    </div>
+                </div>
+
+                <div class="form-row" style="margin-bottom:8px;">
+                    <div class="form-group">
+                        <label class="form-label">Date of Joining (DOJ) *</label>
+                        <input type="date" id="stagedModalDoj" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Last Working Date (LWD)</label>
+                        <input type="date" id="stagedModalLwd" class="form-control">
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; margin-bottom:14px;">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="recalcStagedDatesFromDoj()">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                        Recalculate All 6 Stages from DOJ
+                    </button>
+                </div>
+
+                <div style="margin:16px 0 12px;">
+                    <h4 style="font-size:13.5px; font-weight:700; margin-bottom:8px;">Milestone Stage Dates & Opt-Out Preferences</h4>
+                    <div class="table-responsive">
+                        <table class="data-table" id="tableStagedModalStages">
+                            <thead>
+                                <tr>
+                                    <th>Stage</th>
+                                    <th>Calculation Rule</th>
+                                    <th>Scheduled Date</th>
+                                    <th style="text-align:center;">Opt Out?</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Initial Welcome</strong></td>
+                                    <td>DOJ + 15 days (weekend to Mon)</td>
+                                    <td><input type="date" class="form-control" id="staged_dt_initial"></td>
+                                    <td style="text-align:center;"><input type="checkbox" id="staged_opt_initial"></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Q1 Assessment</strong></td>
+                                    <td>DOJ + 3 calendar months</td>
+                                    <td><input type="date" class="form-control" id="staged_dt_q1"></td>
+                                    <td style="text-align:center;"><input type="checkbox" id="staged_opt_q1"></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Q2 Assessment</strong></td>
+                                    <td>DOJ + 6 calendar months</td>
+                                    <td><input type="date" class="form-control" id="staged_dt_q2"></td>
+                                    <td style="text-align:center;"><input type="checkbox" id="staged_opt_q2"></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Q3 Assessment</strong></td>
+                                    <td>DOJ + 9 calendar months</td>
+                                    <td><input type="date" class="form-control" id="staged_dt_q3"></td>
+                                    <td style="text-align:center;"><input type="checkbox" id="staged_opt_q3"></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Q4 Assessment</strong></td>
+                                    <td>DOJ + 12 calendar months</td>
+                                    <td><input type="date" class="form-control" id="staged_dt_q4"></td>
+                                    <td style="text-align:center;"><input type="checkbox" id="staged_opt_q4"></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Exit Feedback</strong></td>
+                                    <td>LWD + 3 calendar months</td>
+                                    <td><input type="date" class="form-control" id="staged_dt_exit"></td>
+                                    <td style="text-align:center;"><input type="checkbox" id="staged_opt_exit"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modalEditStaged')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes to Staging</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- 7. VIEW TRAINEE DOSSIER MODAL                                           -->
+    <!-- ======================================================================= -->
+    <div id="modalViewTrainee" class="modal-overlay">
+        <div class="modal-card" style="max-width:760px;">
+            <div class="modal-header">
+                <div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <h3 id="viewDossierName">Apprentice Profile</h3>
+                        <span id="viewDossierStatusBadge" class="badge">Active</span>
+                    </div>
+                    <p style="font-size:12px; color:var(--text-muted); margin-top:2px;" id="viewDossierId">ID: -</p>
+                </div>
+                <button class="btn-close-modal" onclick="closeModal('modalViewTrainee')">&times;</button>
+            </div>
+
+            <!-- Profile Overview Cards -->
+            <div class="dossier-grid">
+                <div class="dossier-card">
+                    <div class="d-label">Apprentice Email</div>
+                    <div class="d-val" id="viewDossierEmail">-</div>
+                </div>
+                <div class="dossier-card">
+                    <div class="d-label">Department</div>
+                    <div class="d-val" id="viewDossierDept">-</div>
+                </div>
+                <div class="dossier-card">
+                    <div class="d-label">Location / Hub</div>
+                    <div class="d-val" id="viewDossierLocation">-</div>
+                </div>
+                <div class="dossier-card">
+                    <div class="d-label">Reporting Manager</div>
+                    <div class="d-val" id="viewDossierManager">-</div>
+                </div>
+                <div class="dossier-card">
+                    <div class="d-label">Date of Joining (DOJ)</div>
+                    <div class="d-val" id="viewDossierDoj">-</div>
+                </div>
+                <div class="dossier-card">
+                    <div class="d-label">Last Working Date (LWD)</div>
+                    <div class="d-val" id="viewDossierLwd">-</div>
+                </div>
+            </div>
+
+            <div style="margin:20px 0 12px;">
+                <h4 style="font-size:13.5px; font-weight:700; margin-bottom:8px;">Milestone Schedule Timelines</h4>
+                <div class="table-responsive">
+                    <table class="data-table" id="tableViewDossierStages">
+                        <thead>
+                            <tr>
+                                <th>Stage</th>
+                                <th>Recipient</th>
+                                <th>Scheduled Date</th>
+                                <th>Status</th>
+                                <th>Type</th>
+                                <th>Opt-Out</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px;">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modalViewTrainee')">Close</button>
+                <button type="button" class="btn btn-primary" id="btnDossierEditAction" onclick="editFromDossier()">✏️ Edit Profile & Dates</button>
+            </div>
+        </div>
     </div>
 
     <!-- TOAST CONTAINER -->
@@ -1367,6 +1663,46 @@ def get_client_ui_html() -> str:
         let currentUser = localStorage.getItem("naps_admin_user") || null;
         let stagedUploadRows = [];
         let currentEditingTrainee = null;
+        let currentEditingStagedIndex = null;
+        let currentDossierTraineeId = null;
+        let directoryViewMode = "roster"; // "roster" or "matrix"
+        let cachedTraineesList = [];
+
+        // Utility Date & String Helpers
+        function uiDateToIso(dStr) {
+            if (!dStr) return "";
+            dStr = String(dStr).trim();
+            if (/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(dStr)) return dStr;
+            const parts = dStr.split("/");
+            if (parts.length === 3) {
+                const day = parts[0].padStart(2, "0");
+                const month = parts[1].padStart(2, "0");
+                const year = parts[2];
+                return `${year}-${month}-${day}`;
+            }
+            return "";
+        }
+
+        function isoDateToUi(isoStr) {
+            if (!isoStr) return "";
+            isoStr = String(isoStr).trim();
+            if (/^[0-9]{2}[/][0-9]{2}[/][0-9]{4}$/.test(isoStr)) return isoStr;
+            const parts = isoStr.split("-");
+            if (parts.length === 3) {
+                return `${parts[2].padStart(2, "0")}/${parts[1].padStart(2, "0")}/${parts[0]}`;
+            }
+            return isoStr;
+        }
+
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return "";
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
 
         // On Page Load
         document.addEventListener("DOMContentLoaded", () => {
@@ -1652,12 +1988,30 @@ def get_client_ui_html() -> str:
             }
         }
 
-        // TRAINEE DIRECTORY LOADER
+        // TRAINEE DIRECTORY LOADER & VIEW MODES
+        function setDirectoryViewMode(mode) {
+            directoryViewMode = mode;
+            const btnRoster = document.getElementById("btnToggleRoster");
+            const btnMatrix = document.getElementById("btnToggleMatrix");
+            if (btnRoster && btnMatrix) {
+                if (mode === "roster") {
+                    btnRoster.classList.add("active");
+                    btnMatrix.classList.remove("active");
+                } else {
+                    btnRoster.classList.remove("active");
+                    btnMatrix.classList.add("active");
+                }
+            }
+            renderTraineeTable(cachedTraineesList);
+        }
+
         async function loadTrainees() {
             const search = document.getElementById("dirSearch").value.trim();
             const status = document.getElementById("dirStatusFilter").value;
+            const thead = document.getElementById("headTrainees");
             const tbody = document.querySelector("#tableTrainees tbody");
-            tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:20px; color:#94A3B8;">Loading trainees...</td></tr>`;
+            const colSpan = directoryViewMode === "roster" ? 7 : 12;
+            tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center; padding:24px; color:#94A3B8;">Loading apprentice directory...</td></tr>`;
 
             try {
                 const params = new URLSearchParams();
@@ -1666,18 +2020,157 @@ def get_client_ui_html() -> str:
 
                 const res = await apiFetch(`/api/trainees?${params.toString()}`);
                 const data = await res.json();
-                tbody.innerHTML = "";
+                cachedTraineesList = data.trainees || [];
 
-                if (!data.trainees || data.trainees.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:20px; color:#94A3B8;">No trainees matching criteria.</td></tr>`;
-                    return;
+                const countBadge = document.getElementById("dirCountBadge");
+                if (countBadge) countBadge.innerText = `${cachedTraineesList.length} apprentice(s)`;
+
+                renderTraineeTable(cachedTraineesList);
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center; padding:24px; color:var(--danger);">Failed to load trainees: ${err.message}</td></tr>`;
+            }
+        }
+
+        function renderTraineeTable(trainees) {
+            const thead = document.getElementById("headTrainees");
+            const tbody = document.querySelector("#tableTrainees tbody");
+            tbody.innerHTML = "";
+
+            const colSpan = directoryViewMode === "roster" ? 7 : 12;
+            if (!trainees || trainees.length === 0) {
+                if (thead) thead.innerHTML = "";
+                tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center; padding:32px 20px; color:#94A3B8; font-size:13px;">No apprentices found matching search and filter criteria.</td></tr>`;
+                return;
+            }
+
+            if (directoryViewMode === "roster") {
+                // Roster View - Engineered for readability without overflow
+                if (thead) {
+                    thead.innerHTML = `
+                        <tr>
+                            <th>Apprentice</th>
+                            <th>Department & Location</th>
+                            <th>Reporting Manager</th>
+                            <th style="text-align:center;">Status</th>
+                            <th>Tenure</th>
+                            <th>Milestone Progress Tracker</th>
+                            <th style="text-align:center; width:130px;">Actions</th>
+                        </tr>
+                    `;
                 }
 
-                data.trainees.forEach(t => {
+                trainees.forEach(t => {
+                    const row = document.createElement("tr");
+                    const statusBadge = t.status === "Active" ? "badge-active" : (t.status === "Left" ? "badge-left" : "badge-scheduled");
+
+                    function renderStepperNode(label, s) {
+                        if (!s) return `<span class="stepper-node stg-optout" title="${label}: Not configured">${label}</span>`;
+                        let cls = "stg-scheduled";
+                        let tip = `${label} (${s.scheduled_date}) • Status: ${s.status}`;
+                        if (s.status === "Sent") {
+                            cls = "stg-sent";
+                            tip = `${label} (${s.scheduled_date}) • Sent [Simulated]`;
+                        } else if (s.is_opted_out) {
+                            cls = "stg-optout";
+                            tip = `${label} (${s.scheduled_date}) • Opted Out`;
+                        } else if (s.status === "Cancelled") {
+                            cls = "stg-cancelled";
+                            tip = `${label} (${s.scheduled_date}) • Cancelled`;
+                        } else if (s.is_custom_date) {
+                            cls = "stg-custom";
+                            tip = `${label} (${s.scheduled_date}) • Custom Date`;
+                        }
+                        return `<span class="stepper-node ${cls}" title="${tip}">${label}</span>`;
+                    }
+
+                    const stg = t.stages || {};
+                    const stepperHtml = `
+                        <div class="milestone-stepper" title="Click 'View' for full date timeline">
+                            ${renderStepperNode("Init", stg.initial)}
+                            <span style="color:#CBD5E1; font-size:10px;">›</span>
+                            ${renderStepperNode("Q1", stg.q1)}
+                            <span style="color:#CBD5E1; font-size:10px;">›</span>
+                            ${renderStepperNode("Q2", stg.q2)}
+                            <span style="color:#CBD5E1; font-size:10px;">›</span>
+                            ${renderStepperNode("Q3", stg.q3)}
+                            <span style="color:#CBD5E1; font-size:10px;">›</span>
+                            ${renderStepperNode("Q4", stg.q4)}
+                            <span style="color:#CBD5E1; font-size:10px;">›</span>
+                            ${renderStepperNode("Exit", stg.exit)}
+                        </div>
+                    `;
+
+                    row.innerHTML = `
+                        <td>
+                            <div style="font-weight:700; color:var(--primary); cursor:pointer;" onclick="openViewDossierModal('${t.trainee_id}')" title="Click to view full dossier">
+                                ${escapeHtml(t.trainee_name)}
+                            </div>
+                            <div style="font-size:11px; color:var(--text-muted); font-family:var(--font-mono); margin-top:1px;">
+                                ${escapeHtml(t.trainee_id)}
+                            </div>
+                            <div style="font-size:11.5px; margin-top:2px;">
+                                <a href="mailto:${escapeHtml(t.trainee_email)}" style="color:#64748B; text-decoration:none;" title="Send email">
+                                    ✉️ ${escapeHtml(t.trainee_email)}
+                                </a>
+                            </div>
+                        </td>
+                        <td>
+                            <div style="font-weight:600; color:var(--text-main); font-size:13px;">${escapeHtml(t.department || 'General')}</div>
+                            <div style="font-size:11.5px; color:var(--text-muted); margin-top:2px;">📍 ${escapeHtml(t.location || 'Headquarters')}</div>
+                        </td>
+                        <td>
+                            <div style="font-weight:600; color:var(--text-main); font-size:13px;">${escapeHtml(t.manager_name || 'N/A')}</div>
+                            <div style="font-size:11.5px; margin-top:2px;">
+                                ${t.manager_email ? `<a href="mailto:${escapeHtml(t.manager_email)}" style="color:#64748B; text-decoration:none;">✉️ ${escapeHtml(t.manager_email)}</a>` : '<span style="color:#94A3B8;">-</span>'}
+                            </div>
+                        </td>
+                        <td style="text-align:center;">
+                            <span class="badge ${statusBadge}">${t.status}</span>
+                        </td>
+                        <td>
+                            <div style="font-size:11.5px; line-height:1.45;">
+                                <div><span style="color:var(--text-muted); font-size:10.5px;">DOJ:</span> <strong>${t.date_of_joining || '-'}</strong></div>
+                                <div><span style="color:var(--text-muted); font-size:10.5px;">LWD:</span> <span style="color:#64748B;">${t.last_working_date || '-'}</span></div>
+                            </div>
+                        </td>
+                        <td>
+                            ${stepperHtml}
+                        </td>
+                        <td style="text-align:center;">
+                            <div style="display:inline-flex; gap:6px;">
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="openViewDossierModal('${t.trainee_id}')" title="View Full Profile">👁️ View</button>
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="openEditTraineeModal('${t.trainee_id}')" title="Edit Profile & Dates">✏️ Edit</button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } else {
+                // Milestone Matrix View
+                if (thead) {
+                    thead.innerHTML = `
+                        <tr>
+                            <th>Trainee ID</th>
+                            <th>Apprentice Name</th>
+                            <th style="text-align:center;">Status</th>
+                            <th>DOJ</th>
+                            <th>LWD</th>
+                            <th>Initial (15d)</th>
+                            <th>Q1 (3m)</th>
+                            <th>Q2 (6m)</th>
+                            <th>Q3 (9m)</th>
+                            <th>Q4 (12m)</th>
+                            <th>Exit (3m)</th>
+                            <th style="text-align:center; width:130px;">Actions</th>
+                        </tr>
+                    `;
+                }
+
+                trainees.forEach(t => {
                     const row = document.createElement("tr");
 
                     function renderStageBadge(stgKey) {
-                        const s = t.stages[stgKey];
+                        const s = t.stages ? t.stages[stgKey] : null;
                         if (!s) return "-";
                         if (s.status === "Sent") return `<span class="badge badge-simulated">${s.scheduled_date} [Simulated]</span>`;
                         if (s.is_opted_out) return `<span class="badge badge-optout">${s.scheduled_date} [Opted Out]</span>`;
@@ -1690,8 +2183,13 @@ def get_client_ui_html() -> str:
 
                     row.innerHTML = `
                         <td><strong>${t.trainee_id}</strong></td>
-                        <td>${t.trainee_name}</td>
-                        <td><span class="badge ${statusBadge}">${t.status}</span></td>
+                        <td>
+                            <div style="font-weight:700; color:var(--primary); cursor:pointer;" onclick="openViewDossierModal('${t.trainee_id}')">
+                                ${escapeHtml(t.trainee_name)}
+                            </div>
+                            <div style="font-size:11px; color:var(--text-muted);">${escapeHtml(t.trainee_email)}</div>
+                        </td>
+                        <td style="text-align:center;"><span class="badge ${statusBadge}">${t.status}</span></td>
                         <td>${t.date_of_joining}</td>
                         <td>${t.last_working_date}</td>
                         <td>${renderStageBadge("initial")}</td>
@@ -1700,14 +2198,94 @@ def get_client_ui_html() -> str:
                         <td>${renderStageBadge("q3")}</td>
                         <td>${renderStageBadge("q4")}</td>
                         <td>${renderStageBadge("exit")}</td>
-                        <td>
-                            <button class="btn btn-secondary btn-sm" onclick="openEditTraineeModal('${t.trainee_id}')">Edit</button>
+                        <td style="text-align:center;">
+                            <div style="display:inline-flex; gap:6px;">
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="openViewDossierModal('${t.trainee_id}')" title="View Full Profile">👁️ View</button>
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="openEditTraineeModal('${t.trainee_id}')" title="Edit Profile & Dates">✏️ Edit</button>
+                            </div>
                         </td>
                     `;
                     tbody.appendChild(row);
                 });
-            } catch (err) {
-                tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:20px; color:var(--danger);">Failed to load trainees: ${err.message}</td></tr>`;
+            }
+        }
+
+        // VIEW DOSSIER MODAL
+        function openViewDossierModal(traineeId) {
+            const t = cachedTraineesList.find(x => x.trainee_id === traineeId);
+            if (!t) return;
+            currentDossierTraineeId = traineeId;
+
+            document.getElementById("viewDossierName").innerText = t.trainee_name || "Apprentice Profile";
+            document.getElementById("viewDossierId").innerText = `ID: ${t.trainee_id}`;
+
+            const badgeEl = document.getElementById("viewDossierStatusBadge");
+            if (badgeEl) {
+                badgeEl.innerText = t.status || "Active";
+                badgeEl.className = "badge " + (t.status === "Active" ? "badge-active" : (t.status === "Left" ? "badge-left" : "badge-scheduled"));
+            }
+
+            document.getElementById("viewDossierEmail").innerHTML = `<a href="mailto:${escapeHtml(t.trainee_email)}">${escapeHtml(t.trainee_email)}</a>`;
+            document.getElementById("viewDossierDept").innerText = t.department || "Unassigned";
+            document.getElementById("viewDossierLocation").innerText = t.location || "Headquarters";
+
+            const mgrHtml = t.manager_name ? `${escapeHtml(t.manager_name)} ${t.manager_email ? `<br><a href="mailto:${escapeHtml(t.manager_email)}" style="font-size:12px; color:var(--text-muted);">${escapeHtml(t.manager_email)}</a>` : ''}` : "-";
+            document.getElementById("viewDossierManager").innerHTML = mgrHtml;
+
+            document.getElementById("viewDossierDoj").innerText = t.date_of_joining || "-";
+            document.getElementById("viewDossierLwd").innerText = `${t.last_working_date || '-'} (${t.lwd_mode || '12M Auto'})`;
+
+            const tbody = document.querySelector("#tableViewDossierStages tbody");
+            tbody.innerHTML = "";
+
+            const stagesConfig = [
+                { key: "initial", name: "Initial Welcome", recip: "Trainee" },
+                { key: "q1", name: "Quarterly Assessment 1", recip: "Manager" },
+                { key: "q2", name: "Quarterly Assessment 2", recip: "Manager" },
+                { key: "q3", name: "Quarterly Assessment 3", recip: "Manager" },
+                { key: "q4", name: "Quarterly Assessment 4", recip: "Manager" },
+                { key: "exit", name: "Exit Feedback", recip: "Trainee" }
+            ];
+
+            stagesConfig.forEach(cfg => {
+                const s = t.stages ? t.stages[cfg.key] : null;
+                const tr = document.createElement("tr");
+                if (s) {
+                    let statusBadge = `<span class="badge badge-scheduled">${s.status}</span>`;
+                    if (s.status === "Sent") statusBadge = `<span class="badge badge-simulated">Sent [Simulated]</span>`;
+                    else if (s.status === "Cancelled") statusBadge = `<span class="badge badge-cancelled">Cancelled</span>`;
+
+                    const typeBadge = s.is_custom_date ? `<span class="badge badge-custom">Custom</span>` : `<span class="badge" style="background:#F1F5F9; color:#475569;">Standard</span>`;
+                    const optBadge = s.is_opted_out ? `<span class="badge badge-optout">Opted Out</span>` : `<span class="badge badge-active">Active</span>`;
+
+                    tr.innerHTML = `
+                        <td><strong>${cfg.name}</strong></td>
+                        <td>${cfg.recip}</td>
+                        <td><strong>${s.scheduled_date}</strong></td>
+                        <td>${statusBadge}</td>
+                        <td>${typeBadge}</td>
+                        <td>${optBadge}</td>
+                    `;
+                } else {
+                    tr.innerHTML = `
+                        <td><strong>${cfg.name}</strong></td>
+                        <td>${cfg.recip}</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                    `;
+                }
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById("modalViewTrainee").classList.add("open");
+        }
+
+        function editFromDossier() {
+            closeModal("modalViewTrainee");
+            if (currentDossierTraineeId) {
+                openEditTraineeModal(currentDossierTraineeId);
             }
         }
 
@@ -2051,12 +2629,17 @@ def get_client_ui_html() -> str:
         }
 
         function renderStagedRows(rows) {
-            document.getElementById("stagedCount").innerText = rows.length;
+            const stagedCountEl = document.getElementById("stagedCount");
+            const totalBadgeEl = document.getElementById("totalStagedBadge");
+            if (stagedCountEl) stagedCountEl.innerText = rows.length;
+            if (totalBadgeEl) totalBadgeEl.innerText = rows.length;
+
             const tbody = document.querySelector("#tableStaged tbody");
             tbody.innerHTML = "";
 
             if (rows.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:20px; color:#94A3B8;">No staged rows remain.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="14" style="text-align:center; padding:24px; color:#94A3B8;">No staged rows remain.</td></tr>`;
+                updateStagedSelectionCount();
                 return;
             }
 
@@ -2068,23 +2651,147 @@ def get_client_ui_html() -> str:
                 const sQ3 = (r.stages && r.stages.q3 && r.stages.q3.date) ? r.stages.q3.date : "-";
                 const sQ4 = (r.stages && r.stages.q4 && r.stages.q4.date) ? r.stages.q4.date : "-";
                 const sExit = (r.stages && r.stages.exit && r.stages.exit.date) ? r.stages.exit.date : "-";
+
                 tr.innerHTML = `
-                    <td><input type="checkbox" class="staged-row-check" data-id="${r.trainee_id}"></td>
-                    <td><strong>${r.trainee_id}</strong></td>
-                    <td>${r.trainee_name}</td>
-                    <td>${r.date_of_joining || '-'}</td>
+                    <td><input type="checkbox" class="staged-row-check" data-id="${r.trainee_id}" onchange="updateStagedSelectionCount()"></td>
+                    <td><strong>${escapeHtml(r.trainee_id)}</strong></td>
+                    <td>${escapeHtml(r.trainee_name)}</td>
+                    <td><strong>${r.date_of_joining || '-'}</strong></td>
                     <td>${r.last_working_date || '-'}</td>
                     <td><span class="badge badge-scheduled">${r.status || 'Active'}</span></td>
-                    <td>${r.is_existing ? 'Update' : 'New'}</td>
+                    <td>${r.is_existing ? '<span class="badge badge-custom">Update</span>' : '<span class="badge badge-active">New</span>'}</td>
                     <td>${sInit}</td>
                     <td>${sQ1}</td>
                     <td>${sQ2}</td>
                     <td>${sQ3}</td>
                     <td>${sQ4}</td>
                     <td>${sExit}</td>
+                    <td style="text-align:center;">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="openEditStagedModal(${idx})" title="Edit DOJ, LWD or Milestone dates for this employee">
+                            ✏️ Edit Dates
+                        </button>
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
+
+            updateStagedSelectionCount();
+        }
+
+        function updateStagedSelectionCount() {
+            const checked = document.querySelectorAll(".staged-row-check:checked");
+            const count = checked.length;
+            const badge = document.getElementById("selectedStagedBadge");
+            if (badge) badge.innerText = count;
+
+            const btnCommitSel = document.getElementById("btnCommitSelected");
+            if (btnCommitSel) {
+                if (count > 0) {
+                    btnCommitSel.removeAttribute("disabled");
+                    btnCommitSel.style.opacity = "1";
+                } else {
+                    btnCommitSel.setAttribute("disabled", "true");
+                    btnCommitSel.style.opacity = "0.6";
+                }
+            }
+
+            const checkAll = document.getElementById("checkAllStaged");
+            const allChecks = document.querySelectorAll(".staged-row-check");
+            if (checkAll && allChecks.length > 0) {
+                checkAll.checked = (checked.length === allChecks.length);
+                checkAll.indeterminate = (checked.length > 0 && checked.length < allChecks.length);
+            }
+        }
+
+        function openEditStagedModal(idx) {
+            currentEditingStagedIndex = idx;
+            const r = stagedUploadRows[idx];
+            if (!r) return;
+
+            document.getElementById("stagedModalTraineeId").value = r.trainee_id || "";
+            document.getElementById("stagedModalTraineeName").value = r.trainee_name || "";
+            document.getElementById("stagedModalDoj").value = uiDateToIso(r.date_of_joining);
+            document.getElementById("stagedModalLwd").value = uiDateToIso(r.last_working_date);
+
+            const stages = ["initial", "q1", "q2", "q3", "q4", "exit"];
+            stages.forEach(stg => {
+                const sInfo = (r.stages && r.stages[stg]) ? r.stages[stg] : {};
+                const dtEl = document.getElementById(`staged_dt_${stg}`);
+                const optEl = document.getElementById(`staged_opt_${stg}`);
+                if (dtEl) dtEl.value = uiDateToIso(sInfo.date || "");
+                if (optEl) optEl.checked = Boolean(sInfo.opted_out);
+            });
+
+            document.getElementById("modalEditStaged").classList.add("open");
+        }
+
+        function recalcStagedDatesFromDoj() {
+            const dojVal = document.getElementById("stagedModalDoj").value;
+            if (!dojVal) {
+                showToast("Please specify a Date of Joining (DOJ) first.", "warning");
+                return;
+            }
+
+            const doj = new Date(dojVal + "T00:00:00");
+            if (isNaN(doj)) {
+                showToast("Invalid Date of Joining.", "warning");
+                return;
+            }
+
+            // Auto LWD: +12 calendar months
+            const lwd = new Date(doj);
+            lwd.setFullYear(lwd.getFullYear() + 1);
+            document.getElementById("stagedModalLwd").value = lwd.toISOString().split("T")[0];
+
+            // Initial: DOJ + 15 days
+            const initDate = new Date(doj);
+            initDate.setDate(initDate.getDate() + 15);
+            const q1Date = addMonthsClamped(doj, 3);
+            const q2Date = addMonthsClamped(doj, 6);
+            const q3Date = addMonthsClamped(doj, 9);
+            const q4Date = addMonthsClamped(doj, 12);
+            const exitDate = addMonthsClamped(lwd, 3);
+
+            document.getElementById("staged_dt_initial").value = adjustWeekend(initDate).toISOString().split("T")[0];
+            document.getElementById("staged_dt_q1").value = adjustWeekend(q1Date).toISOString().split("T")[0];
+            document.getElementById("staged_dt_q2").value = adjustWeekend(q2Date).toISOString().split("T")[0];
+            document.getElementById("staged_dt_q3").value = adjustWeekend(q3Date).toISOString().split("T")[0];
+            document.getElementById("staged_dt_q4").value = adjustWeekend(q4Date).toISOString().split("T")[0];
+            document.getElementById("staged_dt_exit").value = adjustWeekend(exitDate).toISOString().split("T")[0];
+
+            showToast("Recalculated all 6 stages from DOJ with weekend-to-Monday shift.", "info");
+        }
+
+        function handleSaveStagedModal(e) {
+            e.preventDefault();
+            if (currentEditingStagedIndex === null || !stagedUploadRows[currentEditingStagedIndex]) return;
+
+            const r = stagedUploadRows[currentEditingStagedIndex];
+            const dojIso = document.getElementById("stagedModalDoj").value;
+            const lwdIso = document.getElementById("stagedModalLwd").value;
+
+            if (!dojIso) {
+                showToast("Date of Joining is required.", "warning");
+                return;
+            }
+
+            r.date_of_joining = isoDateToUi(dojIso);
+            r.last_working_date = isoDateToUi(lwdIso);
+
+            if (!r.stages) r.stages = {};
+            const stages = ["initial", "q1", "q2", "q3", "q4", "exit"];
+            stages.forEach(stg => {
+                const dtVal = document.getElementById(`staged_dt_${stg}`).value;
+                const optVal = document.getElementById(`staged_opt_${stg}`).checked;
+                r.stages[stg] = {
+                    date: isoDateToUi(dtVal),
+                    opted_out: optVal
+                };
+            });
+
+            closeModal("modalEditStaged");
+            renderStagedRows(stagedUploadRows);
+            showToast(`Updated dates for apprentice '${r.trainee_id}' in staging table.`, "success");
         }
 
         function renderErrorRows(errors) {
@@ -2105,8 +2812,8 @@ def get_client_ui_html() -> str:
                 const errList = err.errors.map(e => `<strong>${e.field || 'General'}:</strong> ${e.reason || e}`).join("<br>");
                 tr.innerHTML = `
                     <td>Row ${err.row_number}</td>
-                    <td><strong>${err.trainee_id}</strong></td>
-                    <td>${err.trainee_name}</td>
+                    <td><strong>${escapeHtml(err.trainee_id)}</strong></td>
+                    <td>${escapeHtml(err.trainee_name)}</td>
                     <td style="color:var(--danger);">${errList}</td>
                 `;
                 tbody.appendChild(tr);
@@ -2115,6 +2822,7 @@ def get_client_ui_html() -> str:
 
         function toggleSelectAllStaged(masterCheckbox) {
             document.querySelectorAll(".staged-row-check").forEach(cb => cb.checked = masterCheckbox.checked);
+            updateStagedSelectionCount();
         }
 
         function deleteSelectedStagedRows() {
@@ -2123,37 +2831,65 @@ def get_client_ui_html() -> str:
                 showToast("Select at least one staged row to remove.", "warning");
                 return;
             }
+            if (!confirm(`Remove ${checked.length} selected row(s) from staged import?`)) return;
             stagedUploadRows = stagedUploadRows.filter(r => !checked.includes(r.trainee_id));
             renderStagedRows(stagedUploadRows);
+            if (stagedUploadRows.length === 0) {
+                document.getElementById("stagedContainer").style.display = "none";
+            }
             showToast(`Removed ${checked.length} row(s) from staged import.`, "info");
         }
 
-        async function commitStagedRows() {
+        async function commitStagedRows(selectedOnly = false) {
             if (stagedUploadRows.length === 0) {
                 showToast("No staged records available to commit.", "warning");
                 return;
             }
-            if (!confirm(`Commit ${stagedUploadRows.length} valid record(s) to persistent database?`)) return;
+
+            let rowsToCommit = [];
+            let traineeIds = [];
+
+            if (selectedOnly) {
+                const checkedBoxes = Array.from(document.querySelectorAll(".staged-row-check:checked"));
+                traineeIds = checkedBoxes.map(cb => cb.getAttribute("data-id"));
+                if (traineeIds.length === 0) {
+                    showToast("Please select at least one employee checkbox to save.", "warning");
+                    return;
+                }
+                rowsToCommit = stagedUploadRows.filter(r => traineeIds.includes(r.trainee_id));
+                if (!confirm(`Save ${rowsToCommit.length} selected employee(s) to persistent database?`)) return;
+            } else {
+                rowsToCommit = stagedUploadRows;
+                traineeIds = stagedUploadRows.map(r => r.trainee_id);
+                if (!confirm(`Save all ${rowsToCommit.length} employee(s) in staging to persistent database?`)) return;
+            }
 
             try {
-                showToast("Committing records to database...", "info");
-                const traineeIds = stagedUploadRows.map(r => r.trainee_id);
+                showToast(`Committing ${rowsToCommit.length} apprentice record(s)...`, "info");
                 const res = await apiFetch("/api/import/commit", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         trainee_ids_to_commit: traineeIds,
-                        staged_rows: stagedUploadRows
+                        staged_rows: rowsToCommit
                     })
                 });
 
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.detail);
+                if (!res.ok) throw new Error(data.detail || "Commit failed");
 
-                showToast(data.message, "success");
-                stagedUploadRows = [];
-                document.getElementById("stagedContainer").style.display = "none";
-                switchView("directory");
+                showToast(data.message || `Saved ${rowsToCommit.length} employee(s) successfully!`, "success");
+
+                // Remove committed rows from staged rows
+                stagedUploadRows = stagedUploadRows.filter(r => !traineeIds.includes(r.trainee_id));
+
+                if (stagedUploadRows.length > 0) {
+                    renderStagedRows(stagedUploadRows);
+                    showToast(`${stagedUploadRows.length} remaining apprentice(s) left in staging.`, "info");
+                } else {
+                    document.getElementById("stagedContainer").style.display = "none";
+                    switchView("directory");
+                }
                 loadDashboardStats();
             } catch (err) {
                 showToast("Commit error: " + err.message, "danger");
