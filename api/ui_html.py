@@ -537,6 +537,79 @@ def get_client_ui_html() -> str:
             background: #FFFFFF;
             color: var(--primary);
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        /* MILESTONE GRID & DATE CHIPS IN DIRECTORY */
+        .milestone-grid-layout {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(95px, 1fr));
+            gap: 5px;
+            min-width: 310px;
+        }
+
+        .milestone-date-chip {
+            padding: 4px 6px;
+            border-radius: 6px;
+            font-size: 11px;
+            background: #F8FAFC;
+            border: 1px solid #E2E8F0;
+            line-height: 1.25;
+            transition: all 0.15s ease;
+        }
+
+        .milestone-date-chip:hover {
+            border-color: #94A3B8;
+        }
+
+        .milestone-date-chip.sched {
+            background: #EFF6FF;
+            border-color: #BFDBFE;
+            color: #1E40AF;
+        }
+
+        .milestone-date-chip.sent {
+            background: #F3E8FF;
+            border-color: #DDD6FE;
+            color: #6B21A8;
+        }
+
+        .milestone-date-chip.cust {
+            background: #FFFBEB;
+            border-color: #FDE68A;
+            color: #92400E;
+        }
+
+        .milestone-date-chip.opt {
+            background: #F1F5F9;
+            border-color: #E2E8F0;
+            color: #94A3B8;
+        }
+
+        .milestone-date-chip.canc {
+            background: #FEF2F2;
+            border-color: #FECACA;
+            color: #991B1B;
+        }
+
+        .m-chip-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 10px;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+
+        .m-chip-date {
+            font-weight: 700;
+            font-size: 11px;
+            font-family: var(--font-mono);
+        }
+
+        .m-chip-status {
+            font-size: 8.5px;
+            font-weight: 600;
+            padding: 1px 3px;
+            border-radius: 3px;
+            background: rgba(0, 0, 0, 0.06);
         }
 
         /* MILESTONE STEPPER PILLS */
@@ -1242,19 +1315,19 @@ def get_client_ui_html() -> str:
                             <thead>
                                 <tr>
                                     <th style="width:40px;"><input type="checkbox" id="checkAllStaged" onchange="toggleSelectAllStaged(this)"></th>
+                                    <th style="width:115px; text-align:center;">Edit Dates</th>
                                     <th>Trainee ID</th>
-                                    <th>Name</th>
+                                    <th>Apprentice Name</th>
                                     <th>DOJ</th>
                                     <th>LWD</th>
                                     <th>Status</th>
                                     <th>Type</th>
-                                    <th>Initial</th>
-                                    <th>Q1</th>
-                                    <th>Q2</th>
-                                    <th>Q3</th>
-                                    <th>Q4</th>
-                                    <th>Exit</th>
-                                    <th style="text-align:center;">Actions</th>
+                                    <th>Initial (15d)</th>
+                                    <th>Q1 (3m)</th>
+                                    <th>Q2 (6m)</th>
+                                    <th>Q3 (9m)</th>
+                                    <th>Q4 (12m)</th>
+                                    <th>Exit (3m)</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -1784,7 +1857,7 @@ def get_client_ui_html() -> str:
                     currentUser = data.username;
                     document.getElementById("sidebarUsername").innerText = currentUser;
                     document.getElementById("loginGate").style.display = "none";
-                    updateDbChip(data.database_engine);
+                    updateDbChip(data.database_engine, data.db_error);
                     loadDashboardStats();
                     loadQueue();
                 } else {
@@ -1799,27 +1872,53 @@ def get_client_ui_html() -> str:
             document.getElementById("loginGate").style.display = "flex";
         }
 
-        function updateDbChip(engine) {
+        function updateDbChip(engine, dbError) {
             const chip = document.getElementById("chipDatabase");
             const settingsBadge = document.getElementById("settingsDbBadge");
             const settingsDesc = document.getElementById("settingsDbDesc");
             const banner = document.getElementById("bannerEphemeralDb");
+
             if (engine === "postgres") {
                 chip.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg> Database: PostgreSQL (Persistent)`;
                 chip.className = "chip-meta postgres";
                 if (settingsBadge) {
                     settingsBadge.innerText = "PostgreSQL (Cloud Persistent)";
                     settingsBadge.className = "badge badge-scheduled";
-                    settingsDesc.innerText = "Connected to persistent cloud PostgreSQL (Neon / Supabase / Vercel Postgres). Data persists across all deployments.";
+                    settingsDesc.innerText = "Connected to persistent cloud PostgreSQL (Neon / Supabase / Vercel Postgres). Data persists permanently across all deployments and reloads.";
                 }
                 if (banner) banner.style.display = "none";
+            } else if (dbError) {
+                chip.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Database: Error (SQLite Fallback)`;
+                chip.className = "chip-meta";
+                if (settingsBadge) {
+                    settingsBadge.innerText = "PostgreSQL Connection Error (Fallback to SQLite)";
+                    settingsBadge.className = "badge badge-cancelled";
+                    settingsDesc.innerText = `DATABASE_URL was configured, but connection failed: ${dbError}. Running in SQLite fallback.`;
+                }
+                if (banner) {
+                    banner.style.display = "flex";
+                    banner.style.background = "#FEF2F2";
+                    banner.style.borderColor = "#F87171";
+                    banner.style.color = "#991B1B";
+                    banner.innerHTML = `
+                        <div style="display:flex; align-items:flex-start; gap:10px;">
+                            <span style="font-size:18px;">⚠️</span>
+                            <div>
+                                <strong>DATABASE_URL Connection Error:</strong> System detected DATABASE_URL in Vercel, but failed to connect to PostgreSQL:
+                                <div style="font-family:var(--font-mono); font-size:11.5px; margin-top:4px; padding:4px 8px; background:rgba(0,0,0,0.06); border-radius:4px; word-break:break-all;">${escapeHtml(dbError)}</div>
+                                <div style="margin-top:4px; font-size:12px;">Running on fallback SQLite. Please check your connection URL and credentials in Vercel Environment Variables.</div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="switchView('settings')" style="white-space:nowrap; background:#fff;">Storage Settings</button>
+                    `;
+                }
             } else {
                 chip.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg> Database: SQLite (Temporary / Local)`;
                 chip.className = "chip-meta";
                 if (settingsBadge) {
                     settingsBadge.innerText = "SQLite (Local / Ephemeral)";
                     settingsBadge.className = "badge badge-optout";
-                    settingsDesc.innerText = "Operating on local SQLite. On Vercel Serverless containers, local /tmp data resets between idle instances. Add POSTGRES_URL to your Vercel Environment Variables to retain trainees permanently.";
+                    settingsDesc.innerText = "Operating on local SQLite. On Vercel Serverless containers, local /tmp data resets between idle instances. Add DATABASE_URL to your Vercel Environment Variables to retain trainees permanently.";
                 }
                 if (banner) banner.style.display = "flex";
             }
@@ -1851,7 +1950,7 @@ def get_client_ui_html() -> str:
                     localStorage.setItem("naps_admin_user", currentUser);
                     document.getElementById("sidebarUsername").innerText = currentUser;
                     document.getElementById("loginGate").style.display = "none";
-                    updateDbChip(data.database_engine);
+                    updateDbChip(data.database_engine, data.db_error);
                     loadDashboardStats();
                     loadQueue();
                     showToast("Administrator signed in successfully.", "success");
@@ -2085,8 +2184,8 @@ def get_client_ui_html() -> str:
                             <th>Reporting Manager</th>
                             <th style="text-align:center;">Status</th>
                             <th>Tenure</th>
-                            <th>Milestone Progress Tracker</th>
-                            <th style="text-align:center; width:130px;">Actions</th>
+                            <th>Milestone Schedule Timeline (All 6 Stages)</th>
+                            <th style="text-align:center; min-width:140px;">Actions</th>
                         </tr>
                     `;
                 }
@@ -2095,40 +2194,36 @@ def get_client_ui_html() -> str:
                     const row = document.createElement("tr");
                     const statusBadge = t.status === "Active" ? "badge-active" : (t.status === "Left" ? "badge-left" : "badge-scheduled");
 
-                    function renderStepperNode(label, s) {
-                        if (!s) return `<span class="stepper-node stg-optout" title="${label}: Not configured">${label}</span>`;
-                        let cls = "stg-scheduled";
-                        let tip = `${label} (${s.scheduled_date || '-'}) • Status: ${s.status || 'Scheduled'}`;
-                        if (s.status === "Sent") {
-                            cls = "stg-sent";
-                            tip = `${label} (${s.scheduled_date}) • Sent [Simulated]`;
-                        } else if (s.is_opted_out) {
-                            cls = "stg-optout";
-                            tip = `${label} (${s.scheduled_date}) • Opted Out`;
-                        } else if (s.status === "Cancelled") {
-                            cls = "stg-cancelled";
-                            tip = `${label} (${s.scheduled_date}) • Cancelled`;
-                        } else if (s.is_custom_date) {
-                            cls = "stg-custom";
-                            tip = `${label} (${s.scheduled_date}) • Custom Date`;
-                        }
-                        return `<span class="stepper-node ${cls}" title="${tip}">${label}</span>`;
+                    function renderMilestoneChip(label, s) {
+                        if (!s) return `<div class="milestone-date-chip opt" style="text-align:center;"><div class="m-chip-header"><span>${label}</span></div><div class="m-chip-date" style="color:#94A3B8;">-</div></div>`;
+                        const d = s.scheduled_date || s.scheduled_date_raw || "-";
+                        let cls = "sched";
+                        let statusTxt = "";
+                        if (s.status === "Sent") { cls = "sent"; statusTxt = "Sent"; }
+                        else if (s.is_opted_out) { cls = "opt"; statusTxt = "Opt-Out"; }
+                        else if (s.status === "Cancelled") { cls = "canc"; statusTxt = "Cancelled"; }
+                        else if (s.is_custom_date) { cls = "cust"; statusTxt = "Custom"; }
+
+                        return `
+                            <div class="milestone-date-chip ${cls}" title="${label} (${d}) • Status: ${s.status}">
+                                <div class="m-chip-header">
+                                    <span>${label}</span>
+                                    ${statusTxt ? `<span class="m-chip-status">${statusTxt}</span>` : ''}
+                                </div>
+                                <div class="m-chip-date" ${s.is_opted_out ? 'style="text-decoration:line-through;"' : ''}>${d}</div>
+                            </div>
+                        `;
                     }
 
                     const stg = t.stages || {};
-                    const stepperHtml = `
-                        <div class="milestone-stepper" title="Click 'View' for full date timeline">
-                            ${renderStepperNode("Init", stg.initial || stg.INITIAL)}
-                            <span style="color:#CBD5E1; font-size:10px;">›</span>
-                            ${renderStepperNode("Q1", stg.q1 || stg.Q1)}
-                            <span style="color:#CBD5E1; font-size:10px;">›</span>
-                            ${renderStepperNode("Q2", stg.q2 || stg.Q2)}
-                            <span style="color:#CBD5E1; font-size:10px;">›</span>
-                            ${renderStepperNode("Q3", stg.q3 || stg.Q3)}
-                            <span style="color:#CBD5E1; font-size:10px;">›</span>
-                            ${renderStepperNode("Q4", stg.q4 || stg.Q4)}
-                            <span style="color:#CBD5E1; font-size:10px;">›</span>
-                            ${renderStepperNode("Exit", stg.exit || stg.EXIT)}
+                    const milestoneGridHtml = `
+                        <div class="milestone-grid-layout">
+                            ${renderMilestoneChip("Initial (15d)", stg.initial || stg.INITIAL)}
+                            ${renderMilestoneChip("Q1 (3m)", stg.q1 || stg.Q1)}
+                            ${renderMilestoneChip("Q2 (6m)", stg.q2 || stg.Q2)}
+                            ${renderMilestoneChip("Q3 (9m)", stg.q3 || stg.Q3)}
+                            ${renderMilestoneChip("Q4 (12m)", stg.q4 || stg.Q4)}
+                            ${renderMilestoneChip("Exit (3m)", stg.exit || stg.EXIT)}
                         </div>
                     `;
 
@@ -2166,12 +2261,12 @@ def get_client_ui_html() -> str:
                             </div>
                         </td>
                         <td>
-                            ${stepperHtml}
+                            ${milestoneGridHtml}
                         </td>
                         <td style="text-align:center;">
-                            <div style="display:inline-flex; gap:6px;">
+                            <div style="display:inline-flex; flex-direction:column; gap:5px;">
                                 <button type="button" class="btn btn-secondary btn-sm" data-id="${escapeHtml(t.trainee_id)}" onclick="openViewDossierModal(this.getAttribute('data-id'))" title="View Full Profile">👁️ View</button>
-                                <button type="button" class="btn btn-secondary btn-sm" data-id="${escapeHtml(t.trainee_id)}" onclick="openEditTraineeModal(this.getAttribute('data-id'))" title="Edit Profile & Dates">✏️ Edit</button>
+                                <button type="button" class="btn btn-primary btn-sm" data-id="${escapeHtml(t.trainee_id)}" onclick="openEditTraineeModal(this.getAttribute('data-id'))" title="Edit Profile & Dates">✏️ Edit Dates</button>
                             </div>
                         </td>
                     `;
@@ -2734,9 +2829,18 @@ def get_client_ui_html() -> str:
                 const sExit = formatStagedCell(r.stages ? (r.stages.exit || r.stages.EXIT) : null);
 
                 tr.innerHTML = `
-                    <td><input type="checkbox" class="staged-row-check" data-id="${r.trainee_id}" onchange="updateStagedSelectionCount()"></td>
-                    <td><strong>${escapeHtml(r.trainee_id)}</strong></td>
-                    <td>${escapeHtml(r.trainee_name)}</td>
+                    <td><input type="checkbox" class="staged-row-check" data-id="${escapeHtml(r.trainee_id)}" onchange="updateStagedSelectionCount()"></td>
+                    <td style="text-align:center;">
+                        <button type="button" class="btn btn-primary btn-sm" onclick="openEditStagedModal(${idx})" title="Edit DOJ, LWD or Milestone dates for this apprentice" style="font-weight:600; white-space:nowrap;">
+                            ✏️ Edit Dates
+                        </button>
+                    </td>
+                    <td><strong style="font-family:var(--font-mono);">${escapeHtml(r.trainee_id)}</strong></td>
+                    <td>
+                        <a href="javascript:void(0)" onclick="openEditStagedModal(${idx})" style="color:var(--primary); font-weight:700; text-decoration:none;" title="Click to edit dates for this apprentice">
+                            ${escapeHtml(r.trainee_name)} <span style="font-size:11px;">✏️</span>
+                        </a>
+                    </td>
                     <td><strong>${r.date_of_joining || '-'}</strong></td>
                     <td>${r.last_working_date || '-'}</td>
                     <td><span class="badge badge-scheduled">${r.status || 'Active'}</span></td>
@@ -2747,11 +2851,6 @@ def get_client_ui_html() -> str:
                     <td>${sQ3}</td>
                     <td>${sQ4}</td>
                     <td>${sExit}</td>
-                    <td style="text-align:center;">
-                        <button type="button" class="btn btn-secondary btn-sm" onclick="openEditStagedModal(${idx})" title="Edit DOJ, LWD or Milestone dates for this employee">
-                            ✏️ Edit Dates
-                        </button>
-                    </td>
                 `;
                 tbody.appendChild(tr);
             });

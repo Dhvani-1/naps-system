@@ -56,6 +56,7 @@ from naps_engine.db import (
     archive_trainee,
     delete_trainee,
     get_db_connection,
+    get_db_error,
     get_db_type,
     get_schedule_by_id,
     get_schedules_for_trainee,
@@ -268,6 +269,7 @@ def login(req: LoginRequest):
         "username": req.username.strip(),
         "delivery_mode": "SIMULATION",
         "database_engine": get_db_type(),
+        "db_error": get_db_error(),
         "timezone": TIMEZONE_NAME,
     }
 
@@ -281,6 +283,7 @@ def get_current_user_profile(user: str = Depends(get_current_admin)):
         "delivery_mode": "SIMULATION (Safe Mode - Live SMTP Disabled)",
         "is_simulation_mode": True,
         "database_engine": get_db_type(),
+        "db_error": get_db_error(),
         "timezone": TIMEZONE_NAME,
         "current_time_ist": datetime.now(APP_TIMEZONE).strftime("%Y-%m-%d %H:%M:%S %Z"),
     }
@@ -290,6 +293,17 @@ def get_current_user_profile(user: str = Depends(get_current_admin)):
 def logout():
     """Sign out administrator."""
     return {"status": "success", "message": "Signed out successfully."}
+
+
+@app.get("/api/health")
+def health():
+    """System health check and database diagnostics."""
+    return {
+        "status": "healthy",
+        "service": "NAPS Apprenticeship Management Portal",
+        "database_engine": get_db_type(),
+        "db_error": get_db_error(),
+    }
 
 
 # ------------------------------------------------------------------------------

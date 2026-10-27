@@ -311,10 +311,10 @@ class PostgresConnectionWrapper:
         # Handle explicit transaction directives
         if sql_upper.startswith("BEGIN"):
             return PostgresCursorWrapper(self._conn.cursor())
-        elif sql_upper == "COMMIT":
+        elif sql_upper.rstrip(";").strip() == "COMMIT":
             self._conn.commit()
             return PostgresCursorWrapper(self._conn.cursor())
-        elif sql_upper == "ROLLBACK":
+        elif sql_upper.rstrip(";").strip() == "ROLLBACK":
             self._conn.rollback()
             return PostgresCursorWrapper(self._conn.cursor())
 
@@ -410,29 +410,37 @@ def get_sqlite_path(db_path: Optional[str] = None) -> str:
         return "/tmp/naps_trainees.db"
 
 
+_active_db_engine: str = "sqlite"
+_db_connection_error: Optional[str] = None
+
+
 def get_db_type() -> str:
-    """Return active database engine type ('postgres' or 'sqlite')."""
-    db_url = (os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL") or "").strip()
-    return "postgres" if db_url else "sqlite"
+    """Return verified active database engine type ('postgres' or 'sqlite')."""
+    global _active_db_engine
+    return _active_db_engine
 
 
-def init_db(conn: Union[sqlite3.Connection, PostgresConnectionWrapper]) -> None:
+def get_db_error() -> Optional[str]:
+    """Return error message if PostgreSQL connection failed."""
+    global _db_connection_error
+    return _db_connection_error
+
+
+def init_db(conn: Union[sqlite3.Connection, PostgresConnectionWrapper], force: bool = False) -> None:
     """Initialize database tables, foreign keys, and indexes for active engine."""
-    if isinstance(conn, PostgresConnectionWrapper) or get_db_type() == "postgres":
+    global _schema_initialized
+    if _schema_initialized and not force:
+        return
+    if isinstance(conn, PostgresConnectionWrapper):
         conn.executescript(POSTGRES_SCHEMA_SQL)
     else:
         conn.executescript(SQLITE_SCHEMA_SQL)
+    _schema_initialized = True
 
 
 def ensure_db_initialized(conn: Union[sqlite3.Connection, PostgresConnectionWrapper]) -> None:
     """Ensure database schema is initialized at least once per process container."""
-    global _schema_initialized
-    if not _schema_initialized:
-        try:
-            init_db(conn)
-            _schema_initialized = True
-        except Exception as e:
-            print(f"[DB WARNING] Schema initialization warning: {e}")
+    init_db(conn, force=False)
 
 
 def get_db_connection(db_path: Optional[str] = None) -> Union[sqlite3.Connection, PostgresConnectionWrapper]:
@@ -442,24 +450,33 @@ def get_db_connection(db_path: Optional[str] = None) -> Union[sqlite3.Connection
     connects to PostgreSQL via psycopg2.
     Otherwise, falls back to embedded SQLite with WAL journal mode.
     """
+    global _active_db_engine, _db_connection_error
     db_url = (os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL") or "").strip()
 
     if db_url:
         try:
             import psycopg2
-            if db_url.startswith("postgres://"):
-                db_url = "postgresql://" + db_url[len("postgres://"):]
-            if "localhost" not in db_url and "127.0.0.1" not in db_url:
-                if "?" not in db_url:
-                    db_url += "?sslmode=require"
-                elif "sslmode=" not in db_url:
-                    db_url += "&sslmode=require"
-            raw_conn = psycopg2.connect(db_url)
+            clean_url = db_url
+            if clean_url.startswith("postgres://"):
+                clean_url = "postgresql://" + clean_url[len("postgres://"):]
+            if "localhost" not in clean_url and "127.0.0.1" not in clean_url:
+                if "?" not in clean_url:
+                    clean_url += "?sslmode=require"
+                elif "sslmode=" not in clean_url:
+                    clean_url += "&sslmode=require"
+            raw_conn = psycopg2.connect(clean_url, connect_timeout=10)
             conn = PostgresConnectionWrapper(raw_conn)
+            _active_db_engine = "postgres"
+            _db_connection_error = None
             ensure_db_initialized(conn)
             return conn
         except Exception as e:
+            _active_db_engine = "sqlite"
+            _db_connection_error = str(e)
             print(f"[DB ERROR] PostgreSQL connection failed ({e}). Falling back to SQLite.")
+    else:
+        _active_db_engine = "sqlite"
+        _db_connection_error = None
 
     # SQLite Local/Serverless Fallback
     target_path = get_sqlite_path(db_path)
