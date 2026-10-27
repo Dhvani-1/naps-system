@@ -996,6 +996,18 @@ def get_client_ui_html() -> str:
                 </div>
             </div>
 
+            <!-- EPHEMERAL SQLITE BANNER (Active only when on SQLite in Vercel/Cloud) -->
+            <div id="bannerEphemeralDb" style="display:none; background:#FFFBEB; border:1px solid #FCD34D; border-radius:10px; padding:14px 18px; margin-bottom:20px; font-size:13px; color:#92400E; align-items:center; justify-content:space-between; gap:16px;">
+                <div style="display:flex; align-items:flex-start; gap:10px;">
+                    <span style="font-size:18px;">ℹ️</span>
+                    <div>
+                        <strong>Notice on Apprentice Persistence:</strong> The portal is currently running on temporary SQLite storage. On Vercel Serverless, temporary containers periodically reset when idle, which causes existing trainees to start as fresh.
+                        <div style="margin-top:3px; color:#B45309; font-size:12px;">To retain trainees permanently across all browser reloads, configure a free cloud PostgreSQL connection string (from <strong>Neon.tech</strong> or <strong>Supabase</strong>) as <code>POSTGRES_URL</code> in your Vercel Environment Variables.</div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="switchView('settings')" style="white-space:nowrap; background:#fff;">Storage Guide</button>
+            </div>
+
             <!-- DISPATCH WORKER TRIGGER PANEL -->
             <div class="card-panel">
                 <div class="card-header">
@@ -1477,6 +1489,8 @@ def get_client_ui_html() -> str:
                 </div>
             </form>
         </div>
+    </div>
+
     <!-- ======================================================================= -->
     <!-- 6. EDIT STAGED APPRENTICE & DATES MODAL                                 -->
     <!-- ======================================================================= -->
@@ -1493,11 +1507,11 @@ def get_client_ui_html() -> str:
                 <div class="form-row" style="margin-bottom:14px;">
                     <div class="form-group">
                         <label class="form-label">Trainee ID</label>
-                        <input type="text" id="stagedModalId" class="form-control" readonly style="background:#F1F5F9; font-weight:600;">
+                        <input type="text" id="stagedModalTraineeId" class="form-control" readonly style="background:#F1F5F9; font-weight:600;">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Full Name</label>
-                        <input type="text" id="stagedModalName" class="form-control" readonly style="background:#F1F5F9; font-weight:600;">
+                        <input type="text" id="stagedModalTraineeName" class="form-control" readonly style="background:#F1F5F9; font-weight:600;">
                     </div>
                 </div>
 
@@ -1711,6 +1725,20 @@ def get_client_ui_html() -> str:
             const dateInput = document.getElementById("workerTargetDate");
             if (dateInput) dateInput.value = today;
 
+            // Global backdrop click to dismiss modals without reloading
+            document.addEventListener("click", (e) => {
+                if (e.target && e.target.classList && e.target.classList.contains("modal-overlay")) {
+                    e.target.classList.remove("open");
+                }
+            });
+
+            // Escape key listener to dismiss any open modal
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape" || e.keyCode === 27) {
+                    document.querySelectorAll(".modal-overlay.open").forEach(m => m.classList.remove("open"));
+                }
+            });
+
             if (authToken) {
                 verifySessionAndBoot();
             } else {
@@ -1775,6 +1803,7 @@ def get_client_ui_html() -> str:
             const chip = document.getElementById("chipDatabase");
             const settingsBadge = document.getElementById("settingsDbBadge");
             const settingsDesc = document.getElementById("settingsDbDesc");
+            const banner = document.getElementById("bannerEphemeralDb");
             if (engine === "postgres") {
                 chip.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg> Database: PostgreSQL (Persistent)`;
                 chip.className = "chip-meta postgres";
@@ -1783,14 +1812,16 @@ def get_client_ui_html() -> str:
                     settingsBadge.className = "badge badge-scheduled";
                     settingsDesc.innerText = "Connected to persistent cloud PostgreSQL (Neon / Supabase / Vercel Postgres). Data persists across all deployments.";
                 }
+                if (banner) banner.style.display = "none";
             } else {
-                chip.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg> Database: SQLite (Local)`;
+                chip.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg> Database: SQLite (Temporary / Local)`;
                 chip.className = "chip-meta";
                 if (settingsBadge) {
-                    settingsBadge.innerText = "SQLite (Local File)";
+                    settingsBadge.innerText = "SQLite (Local / Ephemeral)";
                     settingsBadge.className = "badge badge-optout";
-                    settingsDesc.innerText = "Operating on local SQLite file. Suitable for local testing and developer workstations.";
+                    settingsDesc.innerText = "Operating on local SQLite. On Vercel Serverless containers, local /tmp data resets between idle instances. Add POSTGRES_URL to your Vercel Environment Variables to retain trainees permanently.";
                 }
+                if (banner) banner.style.display = "flex";
             }
         }
 
@@ -1951,6 +1982,7 @@ def get_client_ui_html() -> str:
         }
 
         function formatStageLabel(stg) {
+            const key = String(stg || "").toLowerCase();
             const map = {
                 "initial": "Initial Welcome (DOJ+15d)",
                 "q1": "Quarterly Assessment 1 (DOJ+3m)",
@@ -1959,7 +1991,7 @@ def get_client_ui_html() -> str:
                 "q4": "Quarterly Assessment 4 (DOJ+12m)",
                 "exit": "Exit Feedback (LWD+3m)"
             };
-            return map[stg] || stg;
+            return map[key] || stg;
         }
 
         // TRIGGER WORKER CYCLE
@@ -2066,7 +2098,7 @@ def get_client_ui_html() -> str:
                     function renderStepperNode(label, s) {
                         if (!s) return `<span class="stepper-node stg-optout" title="${label}: Not configured">${label}</span>`;
                         let cls = "stg-scheduled";
-                        let tip = `${label} (${s.scheduled_date}) • Status: ${s.status}`;
+                        let tip = `${label} (${s.scheduled_date || '-'}) • Status: ${s.status || 'Scheduled'}`;
                         if (s.status === "Sent") {
                             cls = "stg-sent";
                             tip = `${label} (${s.scheduled_date}) • Sent [Simulated]`;
@@ -2086,23 +2118,23 @@ def get_client_ui_html() -> str:
                     const stg = t.stages || {};
                     const stepperHtml = `
                         <div class="milestone-stepper" title="Click 'View' for full date timeline">
-                            ${renderStepperNode("Init", stg.initial)}
+                            ${renderStepperNode("Init", stg.initial || stg.INITIAL)}
                             <span style="color:#CBD5E1; font-size:10px;">›</span>
-                            ${renderStepperNode("Q1", stg.q1)}
+                            ${renderStepperNode("Q1", stg.q1 || stg.Q1)}
                             <span style="color:#CBD5E1; font-size:10px;">›</span>
-                            ${renderStepperNode("Q2", stg.q2)}
+                            ${renderStepperNode("Q2", stg.q2 || stg.Q2)}
                             <span style="color:#CBD5E1; font-size:10px;">›</span>
-                            ${renderStepperNode("Q3", stg.q3)}
+                            ${renderStepperNode("Q3", stg.q3 || stg.Q3)}
                             <span style="color:#CBD5E1; font-size:10px;">›</span>
-                            ${renderStepperNode("Q4", stg.q4)}
+                            ${renderStepperNode("Q4", stg.q4 || stg.Q4)}
                             <span style="color:#CBD5E1; font-size:10px;">›</span>
-                            ${renderStepperNode("Exit", stg.exit)}
+                            ${renderStepperNode("Exit", stg.exit || stg.EXIT)}
                         </div>
                     `;
 
                     row.innerHTML = `
                         <td>
-                            <div style="font-weight:700; color:var(--primary); cursor:pointer;" onclick="openViewDossierModal('${t.trainee_id}')" title="Click to view full dossier">
+                            <div style="font-weight:700; color:var(--primary); cursor:pointer;" data-id="${escapeHtml(t.trainee_id)}" onclick="openViewDossierModal(this.getAttribute('data-id'))" title="Click to view full dossier">
                                 ${escapeHtml(t.trainee_name)}
                             </div>
                             <div style="font-size:11px; color:var(--text-muted); font-family:var(--font-mono); margin-top:1px;">
@@ -2138,8 +2170,8 @@ def get_client_ui_html() -> str:
                         </td>
                         <td style="text-align:center;">
                             <div style="display:inline-flex; gap:6px;">
-                                <button type="button" class="btn btn-secondary btn-sm" onclick="openViewDossierModal('${t.trainee_id}')" title="View Full Profile">👁️ View</button>
-                                <button type="button" class="btn btn-secondary btn-sm" onclick="openEditTraineeModal('${t.trainee_id}')" title="Edit Profile & Dates">✏️ Edit</button>
+                                <button type="button" class="btn btn-secondary btn-sm" data-id="${escapeHtml(t.trainee_id)}" onclick="openViewDossierModal(this.getAttribute('data-id'))" title="View Full Profile">👁️ View</button>
+                                <button type="button" class="btn btn-secondary btn-sm" data-id="${escapeHtml(t.trainee_id)}" onclick="openEditTraineeModal(this.getAttribute('data-id'))" title="Edit Profile & Dates">✏️ Edit</button>
                             </div>
                         </td>
                     `;
@@ -2170,7 +2202,8 @@ def get_client_ui_html() -> str:
                     const row = document.createElement("tr");
 
                     function renderStageBadge(stgKey) {
-                        const s = t.stages ? t.stages[stgKey] : null;
+                        const stgObj = t.stages || {};
+                        const s = stgObj[stgKey] || stgObj[stgKey.toUpperCase()];
                         if (!s) return "-";
                         if (s.status === "Sent") return `<span class="badge badge-simulated">${s.scheduled_date} [Simulated]</span>`;
                         if (s.is_opted_out) return `<span class="badge badge-optout">${s.scheduled_date} [Opted Out]</span>`;
@@ -2184,7 +2217,7 @@ def get_client_ui_html() -> str:
                     row.innerHTML = `
                         <td><strong>${t.trainee_id}</strong></td>
                         <td>
-                            <div style="font-weight:700; color:var(--primary); cursor:pointer;" onclick="openViewDossierModal('${t.trainee_id}')">
+                            <div style="font-weight:700; color:var(--primary); cursor:pointer;" data-id="${escapeHtml(t.trainee_id)}" onclick="openViewDossierModal(this.getAttribute('data-id'))">
                                 ${escapeHtml(t.trainee_name)}
                             </div>
                             <div style="font-size:11px; color:var(--text-muted);">${escapeHtml(t.trainee_email)}</div>
@@ -2200,8 +2233,8 @@ def get_client_ui_html() -> str:
                         <td>${renderStageBadge("exit")}</td>
                         <td style="text-align:center;">
                             <div style="display:inline-flex; gap:6px;">
-                                <button type="button" class="btn btn-secondary btn-sm" onclick="openViewDossierModal('${t.trainee_id}')" title="View Full Profile">👁️ View</button>
-                                <button type="button" class="btn btn-secondary btn-sm" onclick="openEditTraineeModal('${t.trainee_id}')" title="Edit Profile & Dates">✏️ Edit</button>
+                                <button type="button" class="btn btn-secondary btn-sm" data-id="${escapeHtml(t.trainee_id)}" onclick="openViewDossierModal(this.getAttribute('data-id'))" title="View Full Profile">👁️ View</button>
+                                <button type="button" class="btn btn-secondary btn-sm" data-id="${escapeHtml(t.trainee_id)}" onclick="openEditTraineeModal(this.getAttribute('data-id'))" title="Edit Profile & Dates">✏️ Edit</button>
                             </div>
                         </td>
                     `;
@@ -2212,9 +2245,36 @@ def get_client_ui_html() -> str:
 
         // VIEW DOSSIER MODAL
         function openViewDossierModal(traineeId) {
-            const t = cachedTraineesList.find(x => x.trainee_id === traineeId);
-            if (!t) return;
-            currentDossierTraineeId = traineeId;
+            if (!traineeId) return;
+            const t = (cachedTraineesList || []).find(x => String(x.trainee_id).trim() === String(traineeId).trim());
+            if (!t) {
+                openDossierFromApi(traineeId);
+                return;
+            }
+            populateDossierModal(t);
+        }
+
+        async function openDossierFromApi(traineeId) {
+            try {
+                showToast("Loading apprentice profile...", "info");
+                const res = await apiFetch(`/api/trainees/${encodeURIComponent(traineeId)}`);
+                if (!res.ok) throw new Error("Apprentice record not found");
+                const data = await res.json();
+                const t = data.trainee;
+                t.stages = {};
+                (data.schedules || []).forEach(s => {
+                    const k = (s.stage || "").toLowerCase();
+                    t.stages[k] = s;
+                    t.stages[s.stage] = s;
+                });
+                populateDossierModal(t);
+            } catch (err) {
+                showToast(err.message, "danger");
+            }
+        }
+
+        function populateDossierModal(t) {
+            currentDossierTraineeId = t.trainee_id;
 
             document.getElementById("viewDossierName").innerText = t.trainee_name || "Apprentice Profile";
             document.getElementById("viewDossierId").innerText = `ID: ${t.trainee_id}`;
@@ -2248,7 +2308,7 @@ def get_client_ui_html() -> str:
             ];
 
             stagesConfig.forEach(cfg => {
-                const s = t.stages ? t.stages[cfg.key] : null;
+                const s = t.stages ? (t.stages[cfg.key] || t.stages[cfg.key.toUpperCase()]) : null;
                 const tr = document.createElement("tr");
                 if (s) {
                     let statusBadge = `<span class="badge badge-scheduled">${s.status}</span>`;
@@ -2261,7 +2321,7 @@ def get_client_ui_html() -> str:
                     tr.innerHTML = `
                         <td><strong>${cfg.name}</strong></td>
                         <td>${cfg.recip}</td>
-                        <td><strong>${s.scheduled_date}</strong></td>
+                        <td><strong>${s.scheduled_date || s.scheduled_date_raw || '-'}</strong></td>
                         <td>${statusBadge}</td>
                         <td>${typeBadge}</td>
                         <td>${optBadge}</td>
@@ -2291,8 +2351,14 @@ def get_client_ui_html() -> str:
 
         // EDIT TRAINEE MODAL
         async function openEditTraineeModal(traineeId) {
+            if (!traineeId) return;
             try {
-                const res = await apiFetch(`/api/trainees/${traineeId}`);
+                showToast("Loading apprentice details...", "info");
+                const res = await apiFetch(`/api/trainees/${encodeURIComponent(traineeId)}`);
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || "Apprentice not found");
+                }
                 const data = await res.json();
                 currentEditingTrainee = data;
 
@@ -2312,14 +2378,15 @@ def get_client_ui_html() -> str:
                 data.schedules.forEach(s => {
                     const row = document.createElement("tr");
                     const isSent = s.status === "Sent";
+                    const stageKey = (s.stage || "").toLowerCase();
                     row.innerHTML = `
-                        <td><strong>${formatStageLabel(s.stage)}</strong></td>
-                        <td><span class="badge ${s.status === 'Sent' ? 'badge-simulated' : 'badge-scheduled'}">${s.status}</span></td>
+                        <td><strong>${formatStageLabel(stageKey)}</strong></td>
+                        <td><span class="badge ${s.status === 'Sent' ? 'badge-simulated' : (s.status === 'Cancelled' ? 'badge-cancelled' : 'badge-scheduled')}">${s.status}</span></td>
                         <td>
-                            <input type="date" class="form-control" id="sched_date_${s.stage}" value="${s.scheduled_date_raw || ''}" ${isSent ? 'disabled' : ''}>
+                            <input type="date" class="form-control" id="sched_date_${stageKey}" value="${s.scheduled_date_raw || uiDateToIso(s.scheduled_date) || ''}" ${isSent ? 'disabled' : ''}>
                         </td>
                         <td style="text-align:center;">
-                            <input type="checkbox" id="sched_opt_${s.stage}" ${s.is_opted_out ? 'checked' : ''} ${isSent ? 'disabled' : ''}>
+                            <input type="checkbox" id="sched_opt_${stageKey}" ${s.is_opted_out ? 'checked' : ''} ${isSent ? 'disabled' : ''}>
                         </td>
                     `;
                     sTable.appendChild(row);
@@ -2354,6 +2421,7 @@ def get_client_ui_html() -> str:
             const actualLwd = document.getElementById("editActualLwd").value;
 
             try {
+                showToast("Saving apprentice changes...", "info");
                 // 1. Update basic info and status
                 const updatePayload = {
                     trainee_name: name,
@@ -2366,7 +2434,7 @@ def get_client_ui_html() -> str:
                     updatePayload.confirmed_actual_lwd = actualLwd;
                 }
 
-                const res = await apiFetch(`/api/trainees/${tid}`, {
+                const res = await apiFetch(`/api/trainees/${encodeURIComponent(tid)}`, {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(updatePayload)
@@ -2380,8 +2448,8 @@ def get_client_ui_html() -> str:
                 const schedPayload = { stages: {} };
                 const stages = ["initial", "q1", "q2", "q3", "q4", "exit"];
                 stages.forEach(stg => {
-                    const dateEl = document.getElementById(`sched_date_${stg}`);
-                    const optEl = document.getElementById(`sched_opt_${stg}`);
+                    const dateEl = document.getElementById(`sched_date_${stg}`) || document.getElementById(`sched_date_${stg.toUpperCase()}`);
+                    const optEl = document.getElementById(`sched_opt_${stg}`) || document.getElementById(`sched_opt_${stg.toUpperCase()}`);
                     if (dateEl && optEl && !dateEl.disabled) {
                         schedPayload.stages[stg] = {
                             scheduled_date: dateEl.value,
@@ -2390,14 +2458,18 @@ def get_client_ui_html() -> str:
                     }
                 });
 
-                await apiFetch(`/api/trainees/${tid}/schedules`, {
+                const sRes = await apiFetch(`/api/trainees/${encodeURIComponent(tid)}/schedules`, {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(schedPayload)
                 });
+                if (!sRes.ok) {
+                    const sErr = await sRes.json();
+                    throw new Error(sErr.detail || "Failed to update milestone schedules");
+                }
 
                 closeModal("modalEditTrainee");
-                showToast(`Apprentice '${tid}' updated successfully.`, "success");
+                showToast(`Apprentice '${tid}' updated successfully!`, "success");
                 loadTrainees();
                 loadDashboardStats();
             } catch (err) {
@@ -2645,12 +2717,21 @@ def get_client_ui_html() -> str:
 
             rows.forEach((r, idx) => {
                 const tr = document.createElement("tr");
-                const sInit = (r.stages && r.stages.initial && r.stages.initial.date) ? r.stages.initial.date : "-";
-                const sQ1 = (r.stages && r.stages.q1 && r.stages.q1.date) ? r.stages.q1.date : "-";
-                const sQ2 = (r.stages && r.stages.q2 && r.stages.q2.date) ? r.stages.q2.date : "-";
-                const sQ3 = (r.stages && r.stages.q3 && r.stages.q3.date) ? r.stages.q3.date : "-";
-                const sQ4 = (r.stages && r.stages.q4 && r.stages.q4.date) ? r.stages.q4.date : "-";
-                const sExit = (r.stages && r.stages.exit && r.stages.exit.date) ? r.stages.exit.date : "-";
+                const formatStagedCell = (stg) => {
+                    if (!stg) return "-";
+                    const isOpt = Boolean(stg.opt_out !== undefined ? stg.opt_out : stg.opted_out);
+                    const d = stg.date || "-";
+                    if (isOpt) {
+                        return `<span style="text-decoration:line-through; color:var(--text-muted);">${escapeHtml(d)}</span> <span class="badge badge-optout" style="font-size:10px; margin-left:4px;">Opt-out</span>`;
+                    }
+                    return escapeHtml(d);
+                };
+                const sInit = formatStagedCell(r.stages ? (r.stages.initial || r.stages.INITIAL) : null);
+                const sQ1 = formatStagedCell(r.stages ? (r.stages.q1 || r.stages.Q1) : null);
+                const sQ2 = formatStagedCell(r.stages ? (r.stages.q2 || r.stages.Q2) : null);
+                const sQ3 = formatStagedCell(r.stages ? (r.stages.q3 || r.stages.Q3) : null);
+                const sQ4 = formatStagedCell(r.stages ? (r.stages.q4 || r.stages.Q4) : null);
+                const sExit = formatStagedCell(r.stages ? (r.stages.exit || r.stages.EXIT) : null);
 
                 tr.innerHTML = `
                     <td><input type="checkbox" class="staged-row-check" data-id="${r.trainee_id}" onchange="updateStagedSelectionCount()"></td>
@@ -2715,11 +2796,11 @@ def get_client_ui_html() -> str:
 
             const stages = ["initial", "q1", "q2", "q3", "q4", "exit"];
             stages.forEach(stg => {
-                const sInfo = (r.stages && r.stages[stg]) ? r.stages[stg] : {};
+                const sInfo = (r.stages && (r.stages[stg] || r.stages[stg.toUpperCase()])) ? (r.stages[stg] || r.stages[stg.toUpperCase()]) : {};
                 const dtEl = document.getElementById(`staged_dt_${stg}`);
                 const optEl = document.getElementById(`staged_opt_${stg}`);
                 if (dtEl) dtEl.value = uiDateToIso(sInfo.date || "");
-                if (optEl) optEl.checked = Boolean(sInfo.opted_out);
+                if (optEl) optEl.checked = Boolean(sInfo.opt_out !== undefined ? sInfo.opt_out : sInfo.opted_out);
             });
 
             document.getElementById("modalEditStaged").classList.add("open");
@@ -2785,13 +2866,14 @@ def get_client_ui_html() -> str:
                 const optVal = document.getElementById(`staged_opt_${stg}`).checked;
                 r.stages[stg] = {
                     date: isoDateToUi(dtVal),
+                    opt_out: optVal,
                     opted_out: optVal
                 };
             });
 
             closeModal("modalEditStaged");
             renderStagedRows(stagedUploadRows);
-            showToast(`Updated dates for apprentice '${r.trainee_id}' in staging table.`, "success");
+            showToast(`Updated dates and preferences for apprentice '${r.trainee_id}' in staging table.`, "success");
         }
 
         function renderErrorRows(errors) {

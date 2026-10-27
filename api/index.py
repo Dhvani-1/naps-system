@@ -536,7 +536,7 @@ def list_all_trainees(
             for stg in [EmailStage.INITIAL, EmailStage.Q1, EmailStage.Q2, EmailStage.Q3, EmailStage.Q4, EmailStage.EXIT]:
                 s_obj = sched_map.get(stg.value)
                 if s_obj:
-                    stages_out[stg.value] = {
+                    stg_dict = {
                         "id": s_obj.id,
                         "scheduled_date": format_date_ui(s_obj.scheduled_date),
                         "scheduled_date_raw": format_date_db(s_obj.scheduled_date),
@@ -547,6 +547,8 @@ def list_all_trainees(
                         "last_error": s_obj.last_error,
                         "sent_at": s_obj.sent_at.isoformat() if s_obj.sent_at else None,
                     }
+                    stages_out[stg.value] = stg_dict
+                    stages_out[stg.value.lower()] = stg_dict
 
             out.append({
                 "trainee_id": t.trainee_id,
@@ -671,15 +673,20 @@ def create_new_trainee(req: TraineeCreateRequest, user: str = Depends(get_curren
         if req.stage_preferences:
             for stg_key, pref in req.stage_preferences.items():
                 try:
-                    stg_enum = EmailStage(stg_key)
-                    if pref.get("custom_date"):
-                        c_date = parse_date(pref.get("custom_date"))
-                        if c_date:
-                            custom_dates[stg_enum] = c_date
-                    if "opt_out" in pref:
-                        opt_outs[stg_enum] = bool(pref.get("opt_out"))
-                except Exception:
-                    pass
+                    stg_enum = EmailStage(str(stg_key).strip().upper())
+                    if isinstance(pref, dict):
+                        if pref.get("custom_date"):
+                            c_date = parse_date(pref.get("custom_date"))
+                            if c_date:
+                                custom_dates[stg_enum] = c_date
+                        if "opt_out" in pref:
+                            opt_outs[stg_enum] = bool(pref.get("opt_out"))
+                        elif "opted_out" in pref:
+                            opt_outs[stg_enum] = bool(pref.get("opted_out"))
+                    elif isinstance(pref, bool):
+                        opt_outs[stg_enum] = pref
+                except Exception as ex:
+                    logger.warning(f"Error parsing stage preference for '{stg_key}': {ex}")
 
         t_obj, scheds = create_trainee_with_schedules(
             conn=conn,
@@ -776,21 +783,25 @@ def update_trainee_schedules(
     """Update custom scheduled dates or toggle opt-out preferences across milestone stages."""
     conn = get_db_connection()
     try:
-        prefs: Dict[EmailStage, Tuple[bool, Optional[date]]] = {}
+        stage_prefs: Dict[EmailStage, Optional[bool]] = {}
+        stage_dates: Dict[EmailStage, Optional[date]] = {}
         for stg_str, data in req.stages.items():
             try:
-                stg_enum = EmailStage(stg_str)
-                opt_out = bool(data.get("opt_out", False))
-                dt = parse_date(data.get("scheduled_date")) if data.get("scheduled_date") else None
-                prefs[stg_enum] = (opt_out, dt)
-            except Exception:
-                pass
+                stg_enum = EmailStage(stg_str.upper())
+                if "opt_out" in data:
+                    stage_prefs[stg_enum] = bool(data["opt_out"])
+                if "scheduled_date" in data and data["scheduled_date"]:
+                    stage_dates[stg_enum] = parse_date(data["scheduled_date"])
+            except Exception as ex:
+                print(f"[STAGE PREF NOTICE] {stg_str}: {ex}")
 
         update_stage_preferences_and_dates(
             conn=conn,
             trainee_id=trainee_id,
-            preferences=prefs,
+            stage_preferences=stage_prefs,
+            stage_custom_dates=stage_dates,
             actor=user,
+            reason="Updated via administrator portal",
         )
 
         return {"status": "success", "message": f"Schedules updated for trainee '{trainee_id}'."}
@@ -1016,8 +1027,9 @@ def commit_import_rows(
                     norm_opt_col = normalize_column_name(col_names["opt_out"])
                     if d_str and d_str != "-":
                         commit_row[norm_date_col] = str(d_str).strip()
-                    if "opt_out" in stg_val:
-                        commit_row[norm_opt_col] = "True" if stg_val["opt_out"] else "False"
+                    opt_val = stg_val.get("opt_out") if "opt_out" in stg_val else stg_val.get("opted_out")
+                    if opt_val is not None:
+                        commit_row[norm_opt_col] = "True" if bool(opt_val) else "False"
 
             commit_dicts.append(commit_row)
 
