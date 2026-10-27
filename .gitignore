@@ -1,0 +1,49 @@
+# ==============================================================================
+# Git Ignore - NAPS Apprentice Lifecycle & Email Scheduling System
+# ==============================================================================
+
+# Environment files & Secrets (CRITICAL: Never commit credentials)
+.env
+.env.local
+.env.*.local
+*.env
+
+# SQLite Databases & WAL/SHM journal files
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# Testing & QA Artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+*.coverage.*
+
+# Streamlit runtime secrets & uploads
+.streamlit/secrets.toml
+
+# IDE, Editor, & Operating System Files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Vercel deployment artifacts
+.vercel/
+
+# Logs & Temporary Files
+*.log
+*.tmp
+logs/
+temp/
