@@ -2,7 +2,7 @@
 
 from datetime import date, datetime, timedelta
 import sqlite3
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 import uuid
 
 from naps_engine.audit import log_audit_event
