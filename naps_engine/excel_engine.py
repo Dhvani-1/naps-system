@@ -74,6 +74,22 @@ class ImportSummary:
     failed_count: int
     results: List[RowImportResult]
 
+    @property
+    def created(self) -> int:
+        return self.created_count
+
+    @property
+    def updated(self) -> int:
+        return self.updated_count
+
+    @property
+    def unchanged(self) -> int:
+        return self.unchanged_count
+
+    @property
+    def failed(self) -> int:
+        return self.failed_count
+
 def normalize_column_name(col: str) -> str:
     """Normalize dataframe header string for flexible matching."""
     c = str(col).strip().lower().replace(" ", "_").replace("-", "_").replace(".", "_")

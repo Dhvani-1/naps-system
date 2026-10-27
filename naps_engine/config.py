@@ -17,7 +17,10 @@ DEFAULT_LEASE_DURATION_SECONDS = 300  # 5 minutes
 MAX_AUTOMATIC_RETRIES = 1             # At most one automatic retry for transient failures
 
 # Database configuration
-DEFAULT_DB_PATH = os.environ.get("NAPS_DB_PATH", "naps_trainees.db")
+DEFAULT_DB_PATH = os.environ.get(
+    "NAPS_DB_PATH",
+    "/tmp/naps_trainees.db" if (os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME")) else "naps_trainees.db"
+)
 DATABASE_URL: str = ""
 POSTGRES_URL: str = ""
 
@@ -42,7 +45,7 @@ DEFAULT_FROM_EMAIL: str = ""
 
 def reload_config() -> None:
     """Reload environment variables from .env and refresh configuration variables."""
-    global DATABASE_URL, POSTGRES_URL, CRON_SECRET, SESSION_SECRET
+    global DEFAULT_DB_PATH, DATABASE_URL, POSTGRES_URL, CRON_SECRET, SESSION_SECRET
     global ENABLE_LIVE_EMAIL_SENDING, EMAIL_DRY_RUN
     global SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_USE_TLS, DEFAULT_FROM_EMAIL
 
@@ -52,6 +55,11 @@ def reload_config() -> None:
     except Exception:
         pass
 
+    # Database configuration
+    DEFAULT_DB_PATH = os.environ.get(
+        "NAPS_DB_PATH",
+        "/tmp/naps_trainees.db" if (os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME")) else "naps_trainees.db"
+    )
     # Database URLs for persistent cloud databases (Neon, Supabase, Vercel Postgres)
     DATABASE_URL = (os.environ.get("DATABASE_URL") or "").strip()
     POSTGRES_URL = (os.environ.get("POSTGRES_URL") or "").strip()

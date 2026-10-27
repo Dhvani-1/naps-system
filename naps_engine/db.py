@@ -239,22 +239,46 @@ def _convert_qmark_to_percent_s(sql: str) -> str:
 
 
 # ------------------------------------------------------------------------------
-# POSTGRESQL CONNECTION & CURSOR WRAPPERS
+# UNIFIED ROW & CURSOR WRAPPERS
 # ------------------------------------------------------------------------------
+
+class RowWrapper(dict):
+    """Unified row wrapper providing dictionary mapping and sequence index access."""
+    def __init__(self, col_names: List[str], values: Any):
+        super().__init__(zip(col_names, values))
+        self._values = tuple(values)
+
+    def __getitem__(self, item: Any) -> Any:
+        if isinstance(item, int):
+            return self._values[item]
+        return super().__getitem__(item)
+
+    def get(self, key: Any, default: Any = None) -> Any:
+        if isinstance(key, int):
+            return self._values[key] if 0 <= key < len(self._values) else default
+        return super().get(key, default)
+
 
 class PostgresCursorWrapper:
     """Cursor wrapper delivering sqlite3.Row-like column and index access."""
-    def __init__(self, raw_cursor):
+    def __init__(self, raw_cursor, lastrowid: Optional[int] = None):
         self._cursor = raw_cursor
+        self._lastrowid = lastrowid
+        self._col_names = [col[0] for col in raw_cursor.description] if raw_cursor.description else []
 
     def fetchone(self) -> Optional[Any]:
-        return self._cursor.fetchone()
+        row = self._cursor.fetchone()
+        if row is None:
+            return None
+        return RowWrapper(self._col_names, row)
 
     def fetchall(self) -> List[Any]:
-        return self._cursor.fetchall()
+        rows = self._cursor.fetchall()
+        return [RowWrapper(self._col_names, r) for r in rows]
 
     def fetchmany(self, size: Optional[int] = None) -> List[Any]:
-        return self._cursor.fetchmany(size) if size is not None else self._cursor.fetchmany()
+        rows = self._cursor.fetchmany(size) if size is not None else self._cursor.fetchmany()
+        return [RowWrapper(self._col_names, r) for r in rows]
 
     @property
     def rowcount(self) -> int:
@@ -262,13 +286,16 @@ class PostgresCursorWrapper:
 
     @property
     def lastrowid(self) -> Optional[int]:
-        return getattr(self._cursor, "lastrowid", None)
+        return self._lastrowid
 
     def __iter__(self):
-        return iter(self._cursor)
+        return iter(self.fetchall())
 
     def close(self):
-        self._cursor.close()
+        try:
+            self._cursor.close()
+        except Exception:
+            pass
 
 
 class PostgresConnectionWrapper:
@@ -278,60 +305,134 @@ class PostgresConnectionWrapper:
         self._conn.autocommit = False
 
     def execute(self, sql: str, params: Any = None) -> PostgresCursorWrapper:
-        import psycopg2.extras
         sql_clean = sql.strip()
         sql_upper = sql_clean.upper()
 
         # Handle explicit transaction directives
         if sql_upper.startswith("BEGIN"):
-            # psycopg2 automatically initiates a transaction on statement execution
-            return PostgresCursorWrapper(self._conn.cursor(cursor_factory=psycopg2.extras.DictCursor))
+            return PostgresCursorWrapper(self._conn.cursor())
         elif sql_upper == "COMMIT":
             self._conn.commit()
-            return PostgresCursorWrapper(self._conn.cursor(cursor_factory=psycopg2.extras.DictCursor))
+            return PostgresCursorWrapper(self._conn.cursor())
         elif sql_upper == "ROLLBACK":
             self._conn.rollback()
-            return PostgresCursorWrapper(self._conn.cursor(cursor_factory=psycopg2.extras.DictCursor))
+            return PostgresCursorWrapper(self._conn.cursor())
 
         pg_sql = _convert_qmark_to_percent_s(sql)
-        cursor = self._conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        if params is not None:
-            if isinstance(params, (list, tuple)):
-                cursor.execute(pg_sql, tuple(params))
+        cursor = self._conn.cursor()
+        lastrowid = None
+
+        # Check if INSERT without RETURNING on table with serial id
+        sql_trim = pg_sql.strip().rstrip(";")
+        is_insert = sql_trim.upper().startswith("INSERT INTO")
+        has_returning = "RETURNING" in sql_trim.upper()
+        target_tables = ("email_schedules", "delivery_attempts", "audit_logs")
+        needs_returning = is_insert and not has_returning and any(tbl in sql_trim for tbl in target_tables)
+
+        if needs_returning:
+            sql_trim += " RETURNING id"
+            if params is not None:
+                cursor.execute(sql_trim, tuple(params) if isinstance(params, (list, tuple)) else params)
             else:
-                cursor.execute(pg_sql, params)
+                cursor.execute(sql_trim)
+            try:
+                ret = cursor.fetchone()
+                if ret:
+                    lastrowid = ret[0]
+            except Exception:
+                pass
+            return PostgresCursorWrapper(cursor, lastrowid=lastrowid)
         else:
-            cursor.execute(pg_sql)
-        return PostgresCursorWrapper(cursor)
+            if params is not None:
+                cursor.execute(pg_sql, tuple(params) if isinstance(params, (list, tuple)) else params)
+            else:
+                cursor.execute(pg_sql)
+            return PostgresCursorWrapper(cursor)
 
     def commit(self):
-        self._conn.commit()
+        try:
+            self._conn.commit()
+        except Exception:
+            pass
 
     def rollback(self):
-        self._conn.rollback()
+        try:
+            self._conn.rollback()
+        except Exception:
+            pass
 
     def close(self):
-        self._conn.close()
+        try:
+            self._conn.close()
+        except Exception:
+            pass
 
     def executescript(self, script: str):
         statements = [s.strip() for s in script.split(";") if s.strip()]
-        cursor = self._conn.cursor()
         for stmt in statements:
             if stmt.upper().startswith("PRAGMA"):
                 continue
-            cursor.execute(_convert_qmark_to_percent_s(stmt))
-        self._conn.commit()
-        cursor.close()
+            cursor = self._conn.cursor()
+            try:
+                cursor.execute(_convert_qmark_to_percent_s(stmt))
+                self._conn.commit()
+            except Exception as e:
+                self._conn.rollback()
+                if "already exists" not in str(e).lower():
+                    print(f"[DB SCHEMA NOTICE] {e}")
+            finally:
+                cursor.close()
 
 
 # ------------------------------------------------------------------------------
 # CONNECTION FACTORY
 # ------------------------------------------------------------------------------
 
+_schema_initialized: bool = False
+
+
+def get_sqlite_path(db_path: Optional[str] = None) -> str:
+    """Determine writable SQLite path, automatically defaulting to /tmp on serverless environments."""
+    if db_path:
+        return db_path
+    env_path = os.environ.get("NAPS_DB_PATH")
+    if env_path:
+        return env_path
+    if os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+        return "/tmp/naps_trainees.db"
+    try:
+        test_file = f".test_write_{os.getpid()}"
+        with open(test_file, "w") as f:
+            f.write("1")
+        os.remove(test_file)
+        return DEFAULT_DB_PATH
+    except Exception:
+        return "/tmp/naps_trainees.db"
+
+
 def get_db_type() -> str:
     """Return active database engine type ('postgres' or 'sqlite')."""
     db_url = (os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL") or "").strip()
     return "postgres" if db_url else "sqlite"
+
+
+def init_db(conn: Union[sqlite3.Connection, PostgresConnectionWrapper]) -> None:
+    """Initialize database tables, foreign keys, and indexes for active engine."""
+    if isinstance(conn, PostgresConnectionWrapper) or get_db_type() == "postgres":
+        conn.executescript(POSTGRES_SCHEMA_SQL)
+    else:
+        conn.executescript(SQLITE_SCHEMA_SQL)
+
+
+def ensure_db_initialized(conn: Union[sqlite3.Connection, PostgresConnectionWrapper]) -> None:
+    """Ensure database schema is initialized at least once per process container."""
+    global _schema_initialized
+    if not _schema_initialized:
+        try:
+            init_db(conn)
+            _schema_initialized = True
+        except Exception as e:
+            print(f"[DB WARNING] Schema initialization warning: {e}")
 
 
 def get_db_connection(db_path: Optional[str] = None) -> Union[sqlite3.Connection, PostgresConnectionWrapper]:
@@ -344,30 +445,44 @@ def get_db_connection(db_path: Optional[str] = None) -> Union[sqlite3.Connection
     db_url = (os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL") or "").strip()
 
     if db_url:
-        import psycopg2
-        import psycopg2.extras
-        # Ensure postgresql:// prefix
-        if db_url.startswith("postgres://"):
-            db_url = "postgresql://" + db_url[len("postgres://"):]
-        raw_conn = psycopg2.connect(db_url, cursor_factory=psycopg2.extras.DictCursor)
-        return PostgresConnectionWrapper(raw_conn)
+        try:
+            import psycopg2
+            if db_url.startswith("postgres://"):
+                db_url = "postgresql://" + db_url[len("postgres://"):]
+            if "localhost" not in db_url and "127.0.0.1" not in db_url:
+                if "?" not in db_url:
+                    db_url += "?sslmode=require"
+                elif "sslmode=" not in db_url:
+                    db_url += "&sslmode=require"
+            raw_conn = psycopg2.connect(db_url)
+            conn = PostgresConnectionWrapper(raw_conn)
+            ensure_db_initialized(conn)
+            return conn
+        except Exception as e:
+            print(f"[DB ERROR] PostgreSQL connection failed ({e}). Falling back to SQLite.")
 
-    # SQLite Local Fallback
-    target_path = db_path or os.environ.get("NAPS_DB_PATH", DEFAULT_DB_PATH)
+    # SQLite Local/Serverless Fallback
+    target_path = get_sqlite_path(db_path)
+    parent_dir = os.path.dirname(os.path.abspath(target_path))
+    if parent_dir and not os.path.exists(parent_dir):
+        try:
+            os.makedirs(parent_dir, exist_ok=True)
+        except Exception:
+            pass
+
     conn = sqlite3.connect(target_path, timeout=10.0, isolation_level=None)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL;")
+    try:
+        conn.execute("PRAGMA journal_mode=WAL;")
+    except Exception:
+        try:
+            conn.execute("PRAGMA journal_mode=DELETE;")
+        except Exception:
+            pass
     conn.execute("PRAGMA foreign_keys=ON;")
     conn.execute("PRAGMA busy_timeout=5000;")
+    ensure_db_initialized(conn)
     return conn
-
-
-def init_db(conn: Union[sqlite3.Connection, PostgresConnectionWrapper]) -> None:
-    """Initialize database tables, foreign keys, and indexes for active engine."""
-    if isinstance(conn, PostgresConnectionWrapper) or get_db_type() == "postgres":
-        conn.executescript(POSTGRES_SCHEMA_SQL)
-    else:
-        conn.executescript(SQLITE_SCHEMA_SQL)
 
 
 # ------------------------------------------------------------------------------

@@ -109,6 +109,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Catch-all unhandled exception handler to return structured JSON instead of plain-text 500."""
+    import traceback
+    traceback.print_exc()
+    status_code = 500
+    if isinstance(exc, HTTPException):
+        status_code = exc.status_code
+        detail = exc.detail
+    else:
+        detail = f"Internal server error: {str(exc)}"
+    return JSONResponse(
+        status_code=status_code,
+        content={"detail": detail, "type": type(exc).__name__},
+    )
+
 # ------------------------------------------------------------------------------
 # AUTHENTICATION & SESSION MANAGEMENT
 # ------------------------------------------------------------------------------
@@ -839,62 +856,99 @@ async def preview_import_file(
     - Staged valid rows with calculated milestone dates.
     - Isolated error rows with field-level reason breakdown.
     """
-    conn = get_db_connection()
     try:
         content = await file.read()
-        filename = file.filename or ""
+        if not content:
+            raise HTTPException(status_code=400, detail="The uploaded file is empty.")
 
-        # Parse into pandas DataFrame
-        if filename.endswith(".csv"):
-            df = pd.read_csv(io.BytesIO(content), dtype=str)
-        else:
-            df = pd.read_excel(io.BytesIO(content), dtype=str)
+        filename = (file.filename or "").lower()
+        if not (filename.endswith(".xlsx") or filename.endswith(".xls") or filename.endswith(".csv")):
+            raise HTTPException(
+                status_code=400,
+                detail="Unsupported file format. Please upload an Excel (.xlsx, .xls) or CSV file.",
+            )
 
-        # Parse using ExcelImporter
-        importer = ExcelImporter(conn=conn, actor=user)
-        df_norm = importer.parse_file(io.BytesIO(content))
-        preview_items = preview_uploaded_schedules(df_norm, conn)
+        conn = get_db_connection()
+        try:
+            importer = ExcelImporter(conn=conn, actor=user)
+            df_norm = importer.parse_file(io.BytesIO(content))
 
-        staged_items = []
-        for idx, item in enumerate(preview_items):
-            orig_row = df_norm.iloc[idx].to_dict()
-            stages_dict = {}
-            for stg, s_data in item.get("stages", {}).items():
-                stg_key = stg.value if hasattr(stg, "value") else str(stg)
-                stages_dict[stg_key] = {
-                    "date": format_date_ui(s_data.get("scheduled_date")),
-                    "opt_out": s_data.get("is_opted_out", False),
-                    "is_custom": s_data.get("is_custom", False),
-                }
+            if df_norm.empty:
+                raise HTTPException(status_code=400, detail="The uploaded sheet contains no data rows.")
 
-            staged_items.append({
-                "trainee_id": item["trainee_id"],
-                "trainee_name": item["trainee_name"],
-                "trainee_email": str(orig_row.get("trainee_email") or ""),
-                "date_of_joining": format_date_ui(item.get("date_of_joining")),
-                "date_of_joining_raw": format_date_db(item.get("date_of_joining")),
-                "manager_name": str(orig_row.get("manager_name") or ""),
-                "manager_email": str(orig_row.get("manager_email") or ""),
-                "department": str(orig_row.get("department") or ""),
-                "location": str(orig_row.get("location") or ""),
-                "status": item.get("status", "Active"),
-                "last_working_date": format_date_ui(item.get("last_working_date")) if item.get("last_working_date") else "-",
-                "is_existing": item.get("is_existing", False),
-                "stages": stages_dict,
-                "raw_row": {k: (str(v) if pd.notna(v) else "") for k, v in orig_row.items()}
-            })
+            preview_items = preview_uploaded_schedules(df_norm, conn)
 
-        return {
-            "total_rows": len(df_norm),
-            "valid_count": len(staged_items),
-            "error_count": 0,
-            "staged_rows": staged_items,
-            "error_rows": [],
-        }
+            staged_items = []
+            error_items = []
+
+            for idx, item in enumerate(preview_items):
+                orig_row = df_norm.iloc[idx].to_dict()
+                row_num = item.get("row_number", idx + 2)
+                trainee_id = str(item.get("trainee_id", "")).strip()
+                trainee_name = str(item.get("trainee_name", "")).strip()
+
+                # Row-level validation
+                row_errors = []
+                if not trainee_id or trainee_id.startswith("Row-"):
+                    row_errors.append({"field": "trainee_id", "reason": "Trainee ID is required."})
+                if not trainee_name or trainee_name == "Unnamed":
+                    row_errors.append({"field": "trainee_name", "reason": "Trainee Name is required."})
+                if not item.get("date_of_joining"):
+                    row_errors.append({"field": "date_of_joining", "reason": "Valid Date of Joining is required (DD/MM/YYYY or YYYY-MM-DD)."})
+
+                if row_errors:
+                    error_items.append({
+                        "row_number": row_num,
+                        "trainee_id": trainee_id or f"Row {row_num}",
+                        "trainee_name": trainee_name or "Unnamed",
+                        "errors": row_errors,
+                    })
+                    continue
+
+                stages_dict = {}
+                for stg, s_data in item.get("stages", {}).items():
+                    stg_key = stg.value if hasattr(stg, "value") else str(stg)
+                    stages_dict[stg_key] = {
+                        "date": format_date_ui(s_data.get("scheduled_date")),
+                        "opt_out": s_data.get("is_opted_out", False),
+                        "is_custom": s_data.get("is_custom", False),
+                    }
+
+                # Ensure all 6 stage keys always exist
+                for stage_code in ["initial", "q1", "q2", "q3", "q4", "exit"]:
+                    if stage_code not in stages_dict:
+                        stages_dict[stage_code] = {"date": "-", "opt_out": False, "is_custom": False}
+
+                staged_items.append({
+                    "trainee_id": item["trainee_id"],
+                    "trainee_name": item["trainee_name"],
+                    "trainee_email": str(orig_row.get("trainee_email") or ""),
+                    "date_of_joining": format_date_ui(item.get("date_of_joining")),
+                    "date_of_joining_raw": format_date_db(item.get("date_of_joining")),
+                    "manager_name": str(orig_row.get("manager_name") or ""),
+                    "manager_email": str(orig_row.get("manager_email") or ""),
+                    "department": str(orig_row.get("department") or ""),
+                    "location": str(orig_row.get("location") or ""),
+                    "status": item.get("status", "Active"),
+                    "last_working_date": format_date_ui(item.get("last_working_date")) if item.get("last_working_date") else "-",
+                    "is_existing": item.get("is_existing", False),
+                    "stages": stages_dict,
+                    "raw_row": {k: (str(v) if pd.notna(v) else "") for k, v in orig_row.items()}
+                })
+
+            return {
+                "total_rows": len(df_norm),
+                "valid_count": len(staged_items),
+                "error_count": len(error_items),
+                "staged_rows": staged_items,
+                "error_rows": error_items,
+            }
+        finally:
+            conn.close()
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"File parsing error: {str(e)}")
-    finally:
-        conn.close()
 
 
 class CommitImportRequest(BaseModel):
@@ -932,14 +986,19 @@ def commit_import_rows(
         df_commit = pd.DataFrame(commit_dicts)
         summary = importer.import_trainees(df_commit)
 
+        created_val = getattr(summary, "created_count", getattr(summary, "created", 0))
+        updated_val = getattr(summary, "updated_count", getattr(summary, "updated", 0))
+        unchanged_val = getattr(summary, "unchanged_count", getattr(summary, "unchanged", 0))
+        failed_val = getattr(summary, "failed_count", getattr(summary, "failed", 0))
+
         return {
             "status": "success",
-            "message": f"Successfully processed: {summary.created} created, {summary.updated} updated, {summary.unchanged} unchanged, {summary.failed} failed.",
+            "message": f"Successfully processed: {created_val} created, {updated_val} updated, {unchanged_val} unchanged, {failed_val} failed.",
             "details": {
-                "created": summary.created,
-                "updated": summary.updated,
-                "unchanged": summary.unchanged,
-                "failed": summary.failed,
+                "created": created_val,
+                "updated": updated_val,
+                "unchanged": unchanged_val,
+                "failed": failed_val,
             },
         }
     except Exception as e:

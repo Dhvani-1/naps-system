@@ -1556,22 +1556,36 @@ def get_client_ui_html() -> str:
         async function loadDashboardStats() {
             try {
                 const res = await apiFetch("/api/dashboard/stats");
+                if (!res.ok) {
+                    let errMsg = `Server returned status ${res.status}`;
+                    try { const errObj = await res.json(); if (errObj.detail) errMsg = errObj.detail; } catch (_) {}
+                    console.warn("Dashboard stats notice:", errMsg);
+                    return;
+                }
                 const data = await res.json();
-                document.getElementById("statTotalTrainees").innerText = data.total_trainees;
-                document.getElementById("statActive").innerText = data.active_count;
-                document.getElementById("statCompleted").innerText = (data.completed_count + data.on_roll_count);
-                document.getElementById("statLeft").innerText = data.left_count;
-                document.getElementById("statSent").innerText = data.simulated_sent_count;
-                document.getElementById("statPending").innerText = data.pending_queue_count;
-                document.getElementById("statExceptions").innerText = data.exceptions_count;
+                if (data.total_trainees !== undefined) document.getElementById("statTotalTrainees").innerText = data.total_trainees;
+                if (data.active_count !== undefined) document.getElementById("statActive").innerText = data.active_count;
+                if (data.completed_count !== undefined && data.on_roll_count !== undefined) {
+                    document.getElementById("statCompleted").innerText = (data.completed_count + data.on_roll_count);
+                }
+                if (data.left_count !== undefined) document.getElementById("statLeft").innerText = data.left_count;
+                if (data.simulated_sent_count !== undefined) document.getElementById("statSent").innerText = data.simulated_sent_count;
+                if (data.pending_queue_count !== undefined) document.getElementById("statPending").innerText = data.pending_queue_count;
+                if (data.exceptions_count !== undefined) document.getElementById("statExceptions").innerText = data.exceptions_count;
             } catch (e) {
-                console.error("Dashboard stats error", e);
+                console.error("Dashboard stats error:", e);
             }
         }
 
         async function loadQueue() {
             try {
                 const res = await apiFetch("/api/dashboard/queue");
+                if (!res.ok) {
+                    let errMsg = `Server returned status ${res.status}`;
+                    try { const errObj = await res.json(); if (errObj.detail) errMsg = errObj.detail; } catch (_) {}
+                    console.warn("Queue load notice:", errMsg);
+                    return;
+                }
                 const data = await res.json();
                 const tbody = document.querySelector("#tableQueue tbody");
                 tbody.innerHTML = "";
@@ -1596,7 +1610,7 @@ def get_client_ui_html() -> str:
                     tbody.appendChild(row);
                 });
             } catch (e) {
-                console.error("Queue load error", e);
+                console.error("Queue load error:", e);
             }
         }
 
@@ -2010,19 +2024,27 @@ def get_client_ui_html() -> str:
                     method: "POST",
                     body: formData
                 });
-                if (!res.ok) {
-                    const err = await res.json();
-                    throw new Error(err.detail);
+                
+                let data;
+                try {
+                    data = await res.json();
+                } catch (parseErr) {
+                    throw new Error(`Server returned HTTP ${res.status}: ${res.statusText || 'Upload processing error'}`);
                 }
-                const data = await res.json();
-                stagedUploadRows = data.staged_rows;
+
+                if (!res.ok) {
+                    throw new Error(data && data.detail ? data.detail : `Upload failed with status ${res.status}`);
+                }
+
+                stagedUploadRows = data.staged_rows || [];
 
                 renderStagedRows(stagedUploadRows);
-                renderErrorRows(data.error_rows);
+                renderErrorRows(data.error_rows || []);
                 document.getElementById("stagedContainer").style.display = "block";
-                showToast(`Staged ${data.valid_count} valid row(s). Found ${data.error_count} error(s).`, "success");
+                showToast(`Staged ${data.valid_count || 0} valid row(s). Found ${data.error_count || 0} error(s).`, "success");
             } catch (err) {
                 showToast("Import error: " + err.message, "danger");
+                console.error("Import file error:", err);
             } finally {
                 e.target.value = "";
             }
@@ -2040,20 +2062,26 @@ def get_client_ui_html() -> str:
 
             rows.forEach((r, idx) => {
                 const tr = document.createElement("tr");
+                const sInit = (r.stages && r.stages.initial && r.stages.initial.date) ? r.stages.initial.date : "-";
+                const sQ1 = (r.stages && r.stages.q1 && r.stages.q1.date) ? r.stages.q1.date : "-";
+                const sQ2 = (r.stages && r.stages.q2 && r.stages.q2.date) ? r.stages.q2.date : "-";
+                const sQ3 = (r.stages && r.stages.q3 && r.stages.q3.date) ? r.stages.q3.date : "-";
+                const sQ4 = (r.stages && r.stages.q4 && r.stages.q4.date) ? r.stages.q4.date : "-";
+                const sExit = (r.stages && r.stages.exit && r.stages.exit.date) ? r.stages.exit.date : "-";
                 tr.innerHTML = `
                     <td><input type="checkbox" class="staged-row-check" data-id="${r.trainee_id}"></td>
                     <td><strong>${r.trainee_id}</strong></td>
                     <td>${r.trainee_name}</td>
-                    <td>${r.date_of_joining}</td>
-                    <td>${r.last_working_date}</td>
-                    <td><span class="badge badge-scheduled">${r.status}</span></td>
+                    <td>${r.date_of_joining || '-'}</td>
+                    <td>${r.last_working_date || '-'}</td>
+                    <td><span class="badge badge-scheduled">${r.status || 'Active'}</span></td>
                     <td>${r.is_existing ? 'Update' : 'New'}</td>
-                    <td>${r.stages.initial.date}</td>
-                    <td>${r.stages.q1.date}</td>
-                    <td>${r.stages.q2.date}</td>
-                    <td>${r.stages.q3.date}</td>
-                    <td>${r.stages.q4.date}</td>
-                    <td>${r.stages.exit.date}</td>
+                    <td>${sInit}</td>
+                    <td>${sQ1}</td>
+                    <td>${sQ2}</td>
+                    <td>${sQ3}</td>
+                    <td>${sQ4}</td>
+                    <td>${sExit}</td>
                 `;
                 tbody.appendChild(tr);
             });
