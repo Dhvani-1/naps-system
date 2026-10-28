@@ -202,6 +202,7 @@ class TraineeCreateRequest(BaseModel):
     location: str
     status: Optional[str] = "Active"
     last_working_date: Optional[str] = None
+    confirmed_actual_lwd: Optional[bool] = False
     stage_preferences: Optional[Dict[str, Dict[str, Any]]] = None
 
 
@@ -215,21 +216,27 @@ class TraineeUpdateRequest(BaseModel):
     location: Optional[str] = None
     status: Optional[str] = None
     last_working_date: Optional[str] = None
-    confirmed_actual_lwd: Optional[str] = None
+    lwd_mode: Optional[str] = None
+    confirmed_actual_lwd: Optional[bool] = False
+    manual_lwd_reviewed: Optional[bool] = False
 
 
 class ScheduleUpdateRequest(BaseModel):
-    stages: Dict[str, Dict[str, Any]]  # { "q1": { "opt_out": bool, "scheduled_date": "DD/MM/YYYY" } }
+    stages: Dict[str, Dict[str, Any]]  # { "q1": { "opt_out": bool, "scheduled_date": "DD/MM/YYYY", "clear_custom_date": bool } }
 
 
 class ExceptionResolveRequest(BaseModel):
     schedule_id: int
-    action: str  # "MARK_SENT" or "RETRY"
+    action: str  # "MARK_SENT" / "confirm_sent" or "RETRY" / "authorize_retry"
     reason: str
 
 
 class RunWorkerRequest(BaseModel):
     target_date: Optional[str] = None  # YYYY-MM-DD or DD/MM/YYYY
+
+
+class DeleteTraineesRequest(BaseModel):
+    trainee_ids: List[str]
 
 
 # ------------------------------------------------------------------------------
@@ -309,19 +316,25 @@ def get_dashboard_stats(user: str = Depends(get_current_admin)):
         on_roll_count = sum(1 for t in trainees if t.status == TraineeStatus.ON_ROLL)
         left_count = sum(1 for t in trainees if t.status == TraineeStatus.LEFT)
 
-        # Email schedule status counts
-        cur = conn.execute(
-            """
-            SELECT status, COUNT(*) as cnt
-            FROM email_schedules
-            GROUP BY status
-            """
-        )
-        status_counts = {r["status"]: r["cnt"] for r in cur.fetchall()}
+        today_kolkata = datetime.now(APP_TIMEZONE).date()
+        today_db_str = format_date_db(today_kolkata)
 
-        simulated_sent_count = status_counts.get("Sent", 0)
-        pending_queue_count = status_counts.get("Scheduled", 0) + status_counts.get("Retrying", 0)
-        exceptions_count = status_counts.get("Uncertain", 0) + status_counts.get("Failed", 0)
+        sched_summary = conn.execute(
+            """
+            SELECT
+                SUM(CASE WHEN status IN ('Scheduled', 'Processing', 'Retrying') THEN 1 ELSE 0 END) AS pending_cnt,
+                SUM(CASE WHEN status = 'Sent' THEN 1 ELSE 0 END) AS sent_cnt,
+                SUM(CASE WHEN status IN ('Uncertain', 'Failed') THEN 1 ELSE 0 END) AS exc_cnt,
+                SUM(CASE WHEN status IN ('Scheduled', 'Processing', 'Retrying') AND scheduled_date <= ? THEN 1 ELSE 0 END) AS overdue_cnt
+            FROM email_schedules
+            """,
+            (today_db_str,)
+        ).fetchone()
+
+        pending_queue_count = (sched_summary["pending_cnt"] or 0) if sched_summary else 0
+        simulated_sent_count = (sched_summary["sent_cnt"] or 0) if sched_summary else 0
+        exceptions_count = (sched_summary["exc_cnt"] or 0) if sched_summary else 0
+        overdue_count = (sched_summary["overdue_cnt"] or 0) if sched_summary else 0
 
         # Department breakdown
         dept_counts: Dict[str, int] = {}
@@ -331,7 +344,7 @@ def get_dashboard_stats(user: str = Depends(get_current_admin)):
 
         # Recent audit logs
         log_cur = conn.execute(
-            "SELECT id, timestamp, actor, entity_type, entity_id, action, reason FROM audit_logs ORDER BY id DESC LIMIT 10"
+            "SELECT id, timestamp, actor, entity_type, entity_id, action, reason FROM audit_logs ORDER BY id DESC LIMIT 5"
         )
         recent_logs = [dict(r) for r in log_cur.fetchall()]
 
@@ -357,11 +370,13 @@ def get_dashboard_stats(user: str = Depends(get_current_admin)):
             "simulated_sent_count": simulated_sent_count,
             "pending_queue_count": pending_queue_count,
             "exceptions_count": exceptions_count,
+            "overdue_count": overdue_count,
             "department_breakdown": dept_counts,
             "recent_activity": recent_logs,
             "exceptions": exceptions,
-            "delivery_mode": "SIMULATION (Safe Mode - Live SMTP Disabled)",
-            "is_simulation_mode": True,
+            "today_ist": format_date_ui(today_kolkata),
+            "delivery_mode": "Simulation (Dry-Run)" if config.EMAIL_DRY_RUN else "Live SMTP Dispatch",
+            "is_simulation_mode": config.EMAIL_DRY_RUN,
             "database_engine": get_db_type(),
         }
     finally:
@@ -434,6 +449,30 @@ def run_worker_cycle(req: RunWorkerRequest, user: str = Depends(get_current_admi
         }
     finally:
         conn.close()
+
+
+@app.get("/api/worker/config")
+def get_worker_config(user: str = Depends(get_current_admin)):
+    """Retrieve active worker and dispatch configuration."""
+    config.reload_config()
+    clean_pwd = (config.SMTP_PASSWORD or "").replace(" ", "").strip()
+    has_pwd = bool(clean_pwd)
+    today_kolkata = datetime.now(APP_TIMEZONE).date()
+    sender_display = config.DEFAULT_FROM_EMAIL or config.SMTP_USER or "Not configured"
+    return {
+        "sender_email": sender_display,
+        "smtp_host": config.SMTP_HOST,
+        "smtp_port": config.SMTP_PORT,
+        "smtp_user": config.SMTP_USER,
+        "has_password": has_pwd,
+        "smtp_use_tls": config.SMTP_USE_TLS,
+        "delivery_mode": "Simulation (Dry-Run)" if config.EMAIL_DRY_RUN else "Live SMTP Dispatch",
+        "is_dry_run": config.EMAIL_DRY_RUN,
+        "timezone": TIMEZONE_NAME,
+        "today_ist": format_date_ui(today_kolkata),
+        "target_dispatch_hour": "09:00:00 Asia/Kolkata",
+        "max_automatic_retries": config.MAX_AUTOMATIC_RETRIES,
+    }
 
 
 @app.get("/api/cron/dispatch")
@@ -516,6 +555,7 @@ def list_all_trainees(
             if dept_filter and dept_filter != "All" and t.department != dept_filter:
                 continue
             if search:
+                q = search.lower().strip()
                 match_fields = [
                     t.trainee_id or "",
                     t.trainee_name or "",
@@ -608,11 +648,16 @@ def get_single_trainee(trainee_id: str, user: str = Depends(get_current_admin)):
                 "last_working_date": format_date_ui(t.last_working_date),
                 "last_working_date_raw": format_date_db(t.last_working_date),
                 "lwd_mode": t.lwd_mode.value,
+                "created_at": format_date_ui(t.created_at.date()) if getattr(t, "created_at", None) else "N/A",
+                "updated_at": format_date_ui(t.updated_at.date()) if getattr(t, "updated_at", None) else "N/A",
             },
             "schedules": [
                 {
                     "id": s.id,
                     "stage": s.stage.value,
+                    "recipient_role": s.recipient_role,
+                    "original_due_date": format_date_ui(s.original_due_date),
+                    "original_due_date_raw": format_date_db(s.original_due_date),
                     "scheduled_date": format_date_ui(s.scheduled_date),
                     "scheduled_date_raw": format_date_db(s.scheduled_date),
                     "status": s.status.value,
@@ -620,6 +665,8 @@ def get_single_trainee(trainee_id: str, user: str = Depends(get_current_admin)):
                     "is_custom_date": s.is_custom_date,
                     "attempt_count": s.attempt_count,
                     "last_error": s.last_error,
+                    "cancellation_reason": s.cancellation_reason,
+                    "recipient_email_used": s.recipient_email_used,
                     "sent_at": s.sent_at.isoformat() if s.sent_at else None,
                 }
                 for s in scheds
@@ -686,6 +733,7 @@ def create_new_trainee(req: TraineeCreateRequest, user: str = Depends(get_curren
             trainee=trainee,
             custom_dates=custom_dates if custom_dates else None,
             opt_out_preferences=opt_outs if opt_outs else None,
+            confirmed_actual_lwd=bool(req.confirmed_actual_lwd),
             actor=user,
         )
 
@@ -715,38 +763,28 @@ def update_trainee_details(
         if not t:
             raise HTTPException(status_code=404, detail=f"Trainee '{trainee_id}' not found.")
 
-        updates: Dict[str, Any] = {}
-        if req.trainee_name:
-            updates["trainee_name"] = req.trainee_name.strip()
-        if req.trainee_email:
-            updates["trainee_email"] = req.trainee_email.strip()
-        if req.manager_name:
-            updates["manager_name"] = req.manager_name.strip()
-        if req.manager_email:
-            updates["manager_email"] = req.manager_email.strip()
-        if req.department:
-            updates["department"] = req.department.strip()
-        if req.location:
-            updates["location"] = req.location.strip()
-        if req.date_of_joining:
-            doj = parse_date(req.date_of_joining)
-            if doj:
-                updates["date_of_joining"] = doj
-        if req.status:
-            updates["status"] = TraineeStatus(req.status)
-        if req.last_working_date:
-            lwd = parse_date(req.last_working_date)
-            if lwd:
-                updates["last_working_date"] = lwd
-        if req.confirmed_actual_lwd:
-            c_lwd = parse_date(req.confirmed_actual_lwd)
-            if c_lwd:
-                updates["confirmed_actual_lwd"] = c_lwd
+        new_doj = parse_date(req.date_of_joining) if req.date_of_joining else None
+        new_lwd = parse_date(req.last_working_date) if req.last_working_date else None
+        new_status = TraineeStatus(req.status) if req.status else None
+        new_mode = None
+        if req.lwd_mode:
+            new_mode = LwdMode.AUTO if "auto" in req.lwd_mode.lower() else LwdMode.MANUAL
 
-        updated_t = update_trainee_and_reconcile(
+        updated_t, _ = update_trainee_and_reconcile(
             conn=conn,
             trainee_id=trainee_id,
-            updates=updates,
+            name=req.trainee_name.strip() if req.trainee_name else None,
+            email=req.trainee_email.strip() if req.trainee_email else None,
+            manager_name=req.manager_name.strip() if req.manager_name else None,
+            manager_email=req.manager_email.strip() if req.manager_email else None,
+            department=req.department.strip() if req.department else None,
+            location=req.location.strip() if req.location else None,
+            new_doj=new_doj,
+            new_lwd=new_lwd,
+            new_lwd_mode=new_mode,
+            new_status=new_status,
+            confirmed_actual_lwd=bool(req.confirmed_actual_lwd),
+            manual_lwd_reviewed=bool(req.manual_lwd_reviewed),
             actor=user,
         )
 
@@ -776,21 +814,32 @@ def update_trainee_schedules(
     """Update custom scheduled dates or toggle opt-out preferences across milestone stages."""
     conn = get_db_connection()
     try:
-        prefs: Dict[EmailStage, Tuple[bool, Optional[date]]] = {}
+        stage_prefs: Dict[EmailStage, Optional[bool]] = {}
+        stage_dates: Dict[EmailStage, Optional[date]] = {}
+        clear_dates: Dict[EmailStage, bool] = {}
+
         for stg_str, data in req.stages.items():
             try:
                 stg_enum = EmailStage(stg_str)
-                opt_out = bool(data.get("opt_out", False))
-                dt = parse_date(data.get("scheduled_date")) if data.get("scheduled_date") else None
-                prefs[stg_enum] = (opt_out, dt)
+                if "opt_out" in data:
+                    stage_prefs[stg_enum] = bool(data["opt_out"])
+                if "scheduled_date" in data and data["scheduled_date"]:
+                    d = parse_date(data["scheduled_date"])
+                    if d:
+                        stage_dates[stg_enum] = d
+                if "clear_custom_date" in data:
+                    clear_dates[stg_enum] = bool(data["clear_custom_date"])
             except Exception:
                 pass
 
         update_stage_preferences_and_dates(
             conn=conn,
             trainee_id=trainee_id,
-            preferences=prefs,
+            stage_preferences=stage_prefs,
+            stage_custom_dates=stage_dates,
+            clear_custom_dates=clear_dates,
             actor=user,
+            reason="Updated via Trainee Directory interface",
         )
 
         return {"status": "success", "message": f"Schedules updated for trainee '{trainee_id}'."}
@@ -1110,7 +1159,8 @@ def resolve_exception(req: ExceptionResolveRequest, user: str = Depends(get_curr
             raise HTTPException(status_code=404, detail="Schedule not found.")
 
         now_iso = datetime.now(APP_TIMEZONE).isoformat()
-        if req.action == "MARK_SENT":
+        act_upper = (req.action or "").strip().upper()
+        if act_upper in ("MARK_SENT", "CONFIRM_SENT"):
             conn.execute("BEGIN IMMEDIATE")
             conn.execute(
                 """
@@ -1133,7 +1183,7 @@ def resolve_exception(req: ExceptionResolveRequest, user: str = Depends(get_curr
                 reason=req.reason,
             )
             conn.execute("COMMIT")
-        elif req.action == "RETRY":
+        elif act_upper in ("RETRY", "AUTHORIZE_RETRY"):
             conn.execute("BEGIN IMMEDIATE")
             conn.execute(
                 """
@@ -1164,13 +1214,20 @@ def resolve_exception(req: ExceptionResolveRequest, user: str = Depends(get_curr
 
 
 @app.get("/api/audit-logs")
-def get_audit_logs(user: str = Depends(get_current_admin)):
+def get_audit_logs(
+    entity_type: Optional[str] = Query(None),
+    user: str = Depends(get_current_admin),
+):
     """Retrieve full append-only system audit trail."""
     conn = get_db_connection()
     try:
-        cur = conn.execute(
-            "SELECT id, timestamp, actor, entity_type, entity_id, action, old_values, new_values, reason FROM audit_logs ORDER BY id DESC LIMIT 100"
-        )
+        query = "SELECT id, timestamp, actor, entity_type, entity_id, action, old_values, new_values, reason FROM audit_logs"
+        params = []
+        if entity_type and entity_type.lower() != "all":
+            query += " WHERE entity_type = ?"
+            params.append(entity_type.lower())
+        query += " ORDER BY id DESC LIMIT 100"
+        cur = conn.execute(query, params)
         logs = [dict(r) for r in cur.fetchall()]
         return {"logs": logs}
     finally:
@@ -1198,6 +1255,29 @@ def prune_database(user: str = Depends(get_current_admin)):
         return {
             "status": "success",
             "message": f"Pruned {deleted} trainee(s). Preserved {preserved} trainee(s) with Sent history.",
+        }
+    finally:
+        conn.close()
+
+
+@app.post("/api/database/delete-trainees")
+def delete_selected_trainees(req: DeleteTraineesRequest, user: str = Depends(get_current_admin)):
+    """Delete selected trainees and their unsent schedules from database."""
+    conn = get_db_connection()
+    try:
+        deleted = 0
+        errors = []
+        for tid in req.trainee_ids:
+            try:
+                delete_trainee(conn, tid, actor=user)
+                deleted += 1
+            except Exception as e:
+                errors.append(f"{tid}: {str(e)}")
+        return {
+            "status": "success" if not errors else "partial",
+            "deleted_count": deleted,
+            "errors": errors,
+            "message": f"Successfully deleted {deleted} trainee(s) and their unsent schedules from database." if not errors else f"Deleted {deleted} trainee(s). Errors: {'; '.join(errors)}"
         }
     finally:
         conn.close()
