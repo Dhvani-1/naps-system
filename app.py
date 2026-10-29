@@ -831,11 +831,18 @@ elif menu == "Trainee Directory":
             t_scheds = get_schedules_for_trainee(conn, t.trainee_id)
             s_map = {s.stage: s for s in t_scheds}
 
+            eff_lwd = t.last_working_date or (calculate_default_lwd(t.date_of_joining) if t.date_of_joining else None)
+            auto_stage_map = calculate_all_stage_dates(t.date_of_joining, eff_lwd) if (t.date_of_joining and eff_lwd) else {}
+
             def _format_stage_cell(stage: EmailStage) -> str:
                 s = s_map.get(stage)
+                auto_pair = auto_stage_map.get(stage, (None, None))
+                auto_sched = auto_pair[1]
+                auto_dt_str = format_date_ui(auto_sched) if auto_sched else "-"
+
                 if not s:
-                    return "-"
-                dt_str = format_date_ui(s.scheduled_date)
+                    return f"{auto_dt_str} [Scheduled]" if auto_dt_str != "-" else "-"
+                dt_str = format_date_ui(s.scheduled_date) if s.scheduled_date else auto_dt_str
                 if s.status == ScheduleStatus.SENT:
                     return f"{dt_str} [Sent]"
                 elif s.is_opted_out:
@@ -1392,15 +1399,19 @@ elif menu == "Excel / CSV Import":
 
                 def _fmt_preview_col(stage: EmailStage) -> str:
                     stg = stg_map.get(stage)
-                    if not stg:
-                        return "-"
-                    d_val = stg.get("scheduled_date")
+                    d_val = stg.get("scheduled_date") if stg else None
+                    if not d_val:
+                        eff_doj = item.get("date_of_joining")
+                        eff_lwd = item.get("last_working_date") or (calculate_default_lwd(eff_doj) if eff_doj else None)
+                        if eff_doj and eff_lwd:
+                            calc_map = calculate_all_stage_dates(eff_doj, eff_lwd)
+                            d_val = calc_map[stage][1]
                     d_str = format_date_ui(d_val) if d_val else "-"
-                    if stg.get("is_opted_out"):
+                    if stg and stg.get("is_opted_out"):
                         return f"{d_str} [Opted Out]"
-                    elif stg.get("is_custom"):
+                    elif stg and stg.get("is_custom"):
                         return f"{d_str} [Custom Override]"
-                    elif d_val and d_val.weekday() == 0 and stg.get("math_due_date") and stg.get("math_due_date").weekday() in (5, 6):
+                    elif d_val and d_val.weekday() == 0 and stg and stg.get("math_due_date") and stg.get("math_due_date").weekday() in (5, 6):
                         return f"{d_str} [Weekend Shifted]"
                     else:
                         return f"{d_str} [Scheduled]"

@@ -1956,15 +1956,90 @@ def get_client_ui_html() -> str:
         }
     }
 
-    function formatStageCellBadge(s) {
-        if (!s) return "-";
-        const dt = s.scheduled_date || "-";
-        if (s.status === "Sent") return `${dt} <span class="badge badge-sent">[Sent]</span>`;
-        if (s.is_opted_out) return `${dt} <span class="badge badge-cancelled">[Opted Out]</span>`;
-        if (s.status === "Cancelled") return `${dt} <span class="badge badge-cancelled">[Cancelled]</span>`;
-        if (s.status === "Uncertain") return `${dt} <span class="badge badge-uncertain">[Uncertain]</span>`;
-        if (s.status === "Processing") return `${dt} <span class="badge badge-processing">[Processing]</span>`;
-        if (s.is_custom_date) return `${dt} <span class="badge badge-scheduled">[Custom Override]</span>`;
+    function parseDateUniversal(str) {
+        if (!str || str === "-" || str === "Missing") return null;
+        if (str.includes("-")) {
+            const parts = str.split("-");
+            if (parts.length === 3) {
+                return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+            }
+        } else if (str.includes("/")) {
+            const parts = str.split("/");
+            if (parts.length === 3) {
+                return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+            }
+        }
+        return null;
+    }
+
+    function addMonthsClamped(d, n) {
+        const targetYear = d.getFullYear() + Math.floor((d.getMonth() + n) / 12);
+        const targetMonth = ((d.getMonth() + n) % 12 + 12) % 12;
+        const lastDayOfTargetMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+        const targetDay = Math.min(d.getDate(), lastDayOfTargetMonth);
+        return new Date(targetYear, targetMonth, targetDay);
+    }
+
+    function adjustWeekendJS(d) {
+        const day = d.getDay(); // 0 is Sunday, 6 is Saturday
+        const res = new Date(d);
+        if (day === 6) { // Saturday -> Monday (+2 days)
+            res.setDate(res.getDate() + 2);
+        } else if (day === 0) { // Sunday -> Monday (+1 day)
+            res.setDate(res.getDate() + 1);
+        }
+        return res;
+    }
+
+    function formatUIDateJS(d) {
+        const dd = String(d.getDate()).padStart(2, "0");
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const yyyy = d.getFullYear();
+        return `${dd}/${mm}/${yyyy}`;
+    }
+
+    function computeAutoScheduledDateUI(dojStr, lwdStr, stageKey) {
+        const doj = parseDateUniversal(dojStr);
+        if (!doj) return "-";
+        let lwd = parseDateUniversal(lwdStr);
+        if (!lwd) {
+            lwd = addMonthsClamped(doj, 12);
+        }
+        const stg = (stageKey || "").toUpperCase();
+        let targetDate = null;
+        if (stg === "INITIAL") {
+            targetDate = new Date(doj);
+            targetDate.setDate(targetDate.getDate() + 15);
+        } else if (stg === "Q1") {
+            targetDate = addMonthsClamped(doj, 3);
+        } else if (stg === "Q2") {
+            targetDate = addMonthsClamped(doj, 6);
+        } else if (stg === "Q3") {
+            targetDate = addMonthsClamped(doj, 9);
+        } else if (stg === "Q4") {
+            targetDate = addMonthsClamped(doj, 12);
+        } else if (stg === "EXIT") {
+            targetDate = addMonthsClamped(lwd, 3);
+        }
+        if (!targetDate) return "-";
+        const shifted = adjustWeekendJS(targetDate);
+        return formatUIDateJS(shifted);
+    }
+
+    function formatStageCellBadge(s, t, stageKey) {
+        let dt = s && s.scheduled_date ? s.scheduled_date : "";
+        if (!dt || dt === "-") {
+            if (t && (t.date_of_joining_raw || t.date_of_joining)) {
+                dt = computeAutoScheduledDateUI(t.date_of_joining_raw || t.date_of_joining, t.last_working_date_raw || t.last_working_date, stageKey);
+            }
+        }
+        if (!dt) dt = "-";
+        if (s && s.status === "Sent") return `${dt} <span class="badge badge-sent">[Sent]</span>`;
+        if (s && s.is_opted_out) return `${dt} <span class="badge badge-cancelled">[Opted Out]</span>`;
+        if (s && s.status === "Cancelled") return `${dt} <span class="badge badge-cancelled">[Cancelled]</span>`;
+        if (s && s.status === "Uncertain") return `${dt} <span class="badge badge-uncertain">[Uncertain]</span>`;
+        if (s && s.status === "Processing") return `${dt} <span class="badge badge-processing">[Processing]</span>`;
+        if (s && s.is_custom_date) return `${dt} <span class="badge badge-scheduled">[Custom Override]</span>`;
         return `${dt} <span class="badge badge-scheduled">[Scheduled]</span>`;
     }
 
@@ -1993,6 +2068,7 @@ def get_client_ui_html() -> str:
 
         tbody.innerHTML = filtered.map(t => {
             const stg = t.stages || {};
+            const getStageObj = (key) => stg[key] || stg[key.toUpperCase()] || stg[key.toLowerCase()];
             return `
                 <tr>
                     <td><b>${escapeHtml(t.trainee_id)}</b></td>
@@ -2000,12 +2076,12 @@ def get_client_ui_html() -> str:
                     <td><span class="badge badge-${t.status.toLowerCase().replace(' ', '_')}">${t.status}</span></td>
                     <td>${t.date_of_joining}</td>
                     <td>${t.last_working_date}</td>
-                    <td>${formatStageCellBadge(stg.initial)}</td>
-                    <td>${formatStageCellBadge(stg.q1)}</td>
-                    <td>${formatStageCellBadge(stg.q2)}</td>
-                    <td>${formatStageCellBadge(stg.q3)}</td>
-                    <td>${formatStageCellBadge(stg.q4)}</td>
-                    <td>${formatStageCellBadge(stg.exit)}</td>
+                    <td>${formatStageCellBadge(getStageObj("INITIAL"), t, "INITIAL")}</td>
+                    <td>${formatStageCellBadge(getStageObj("Q1"), t, "Q1")}</td>
+                    <td>${formatStageCellBadge(getStageObj("Q2"), t, "Q2")}</td>
+                    <td>${formatStageCellBadge(getStageObj("Q3"), t, "Q3")}</td>
+                    <td>${formatStageCellBadge(getStageObj("Q4"), t, "Q4")}</td>
+                    <td>${formatStageCellBadge(getStageObj("EXIT"), t, "EXIT")}</td>
                     <td>${escapeHtml(t.department || "-")}</td>
                     <td>${escapeHtml(t.manager_name || "-")}</td>
                 </tr>
@@ -2551,11 +2627,14 @@ def get_client_ui_html() -> str:
         tbody.innerHTML = stagedRowsCache.map((item, idx) => {
             const stgMap = item.stages || {};
             function fmtCol(code) {
-                const s = stgMap[code];
-                if (!s) return "-";
-                const d = s.date || "-";
-                if (s.opt_out) return `${d} <span class="badge badge-cancelled">[Opted Out]</span>`;
-                if (s.is_custom) return `${d} <span class="badge badge-scheduled">[Custom Override]</span>`;
+                const s = stgMap[code] || stgMap[code.toUpperCase()] || stgMap[code.toLowerCase()];
+                let d = s ? (s.date || s.scheduled_date || "") : "";
+                if (!d || d === "-") {
+                    d = computeAutoScheduledDateUI(item.date_of_joining, item.last_working_date, code);
+                }
+                if (!d) d = "-";
+                if (s && (s.opt_out || s.is_opted_out)) return `${d} <span class="badge badge-cancelled">[Opted Out]</span>`;
+                if (s && (s.is_custom || s.is_custom_date)) return `${d} <span class="badge badge-scheduled">[Custom Override]</span>`;
                 return `${d} <span class="badge badge-scheduled">[Scheduled]</span>`;
             }
 

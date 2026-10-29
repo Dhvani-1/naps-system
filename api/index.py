@@ -49,6 +49,7 @@ from naps_engine.config import APP_TIMEZONE, TIMEZONE_NAME
 from naps_engine.date_engine import (
     add_calendar_months,
     adjust_for_weekend,
+    calculate_all_stage_dates,
     calculate_default_lwd,
     validate_dates,
 )
@@ -79,6 +80,7 @@ from naps_engine.models import (
     EmailStage,
     LwdMode,
     ScheduleStatus,
+    STAGE_RECIPIENT_ROLES,
     Trainee,
     TraineeStatus,
     format_date_db,
@@ -572,21 +574,63 @@ def list_all_trainees(
             scheds = get_schedules_for_trainee(conn, t.trainee_id)
             sched_map = {s.stage.value: s for s in scheds}
 
+            # Pre-compute auto fallback dates to guarantee no date column is ever empty
+            eff_lwd = t.last_working_date or (calculate_default_lwd(t.date_of_joining) if t.date_of_joining else None)
+            auto_stage_map = calculate_all_stage_dates(t.date_of_joining, eff_lwd) if (t.date_of_joining and eff_lwd) else {}
+
             stages_out = {}
             for stg in [EmailStage.INITIAL, EmailStage.Q1, EmailStage.Q2, EmailStage.Q3, EmailStage.Q4, EmailStage.EXIT]:
+                auto_pair = auto_stage_map.get(stg, (None, None))
+                auto_sched = auto_pair[1]
+                auto_dt_ui = format_date_ui(auto_sched) if auto_sched else "-"
+                auto_dt_raw = format_date_db(auto_sched) if auto_sched else None
+
                 s_obj = sched_map.get(stg.value)
-                if s_obj:
-                    stages_out[stg.value] = {
-                        "id": s_obj.id,
-                        "scheduled_date": format_date_ui(s_obj.scheduled_date),
-                        "scheduled_date_raw": format_date_db(s_obj.scheduled_date),
-                        "status": s_obj.status.value,
-                        "is_opted_out": s_obj.is_opted_out,
-                        "is_custom_date": s_obj.is_custom_date,
-                        "attempt_count": s_obj.attempt_count,
-                        "last_error": s_obj.last_error,
-                        "sent_at": s_obj.sent_at.isoformat() if s_obj.sent_at else None,
-                    }
+                if s_obj and s_obj.scheduled_date:
+                    sched_dt_ui = format_date_ui(s_obj.scheduled_date)
+                    sched_dt_raw = format_date_db(s_obj.scheduled_date)
+                    st_val = s_obj.status.value
+                    is_opt = s_obj.is_opted_out
+                    is_cust = s_obj.is_custom_date
+                    att_cnt = s_obj.attempt_count
+                    last_err = s_obj.last_error
+                    s_id = s_obj.id
+                    sent_at_val = s_obj.sent_at.isoformat() if s_obj.sent_at else None
+                elif s_obj:
+                    sched_dt_ui = auto_dt_ui
+                    sched_dt_raw = auto_dt_raw
+                    st_val = s_obj.status.value
+                    is_opt = s_obj.is_opted_out
+                    is_cust = s_obj.is_custom_date
+                    att_cnt = s_obj.attempt_count
+                    last_err = s_obj.last_error
+                    s_id = s_obj.id
+                    sent_at_val = s_obj.sent_at.isoformat() if s_obj.sent_at else None
+                else:
+                    sched_dt_ui = auto_dt_ui
+                    sched_dt_raw = auto_dt_raw
+                    st_val = ScheduleStatus.SCHEDULED.value
+                    is_opt = False
+                    is_cust = False
+                    att_cnt = 0
+                    last_err = None
+                    s_id = None
+                    sent_at_val = None
+
+                stg_data = {
+                    "id": s_id,
+                    "scheduled_date": sched_dt_ui,
+                    "scheduled_date_raw": sched_dt_raw,
+                    "status": st_val,
+                    "is_opted_out": is_opt,
+                    "is_custom_date": is_cust,
+                    "attempt_count": att_cnt,
+                    "last_error": last_err,
+                    "sent_at": sent_at_val,
+                }
+                # Support both uppercase (INITIAL, Q1) and lowercase (initial, q1) keys
+                stages_out[stg.value] = stg_data
+                stages_out[stg.value.lower()] = stg_data
 
             out.append({
                 "trainee_id": t.trainee_id,
@@ -633,6 +677,70 @@ def get_single_trainee(trainee_id: str, user: str = Depends(get_current_admin)):
         )
         attempts = [dict(r) for r in att_cur.fetchall()]
 
+        sched_map = {s.stage.value: s for s in scheds}
+        eff_lwd = t.last_working_date or (calculate_default_lwd(t.date_of_joining) if t.date_of_joining else None)
+        auto_stage_map = calculate_all_stage_dates(t.date_of_joining, eff_lwd) if (t.date_of_joining and eff_lwd) else {}
+
+        schedules_list = []
+        for stg in [EmailStage.INITIAL, EmailStage.Q1, EmailStage.Q2, EmailStage.Q3, EmailStage.Q4, EmailStage.EXIT]:
+            auto_pair = auto_stage_map.get(stg, (None, None))
+            auto_due, auto_sched = auto_pair[0], auto_pair[1]
+            s = sched_map.get(stg.value)
+            if s and s.scheduled_date:
+                schedules_list.append({
+                    "id": s.id,
+                    "stage": s.stage.value,
+                    "recipient_role": s.recipient_role,
+                    "original_due_date": format_date_ui(s.original_due_date) if s.original_due_date else format_date_ui(auto_due),
+                    "original_due_date_raw": format_date_db(s.original_due_date) if s.original_due_date else format_date_db(auto_due),
+                    "scheduled_date": format_date_ui(s.scheduled_date),
+                    "scheduled_date_raw": format_date_db(s.scheduled_date),
+                    "status": s.status.value,
+                    "is_opted_out": s.is_opted_out,
+                    "is_custom_date": s.is_custom_date,
+                    "attempt_count": s.attempt_count,
+                    "last_error": s.last_error,
+                    "cancellation_reason": s.cancellation_reason,
+                    "recipient_email_used": s.recipient_email_used,
+                    "sent_at": s.sent_at.isoformat() if s.sent_at else None,
+                })
+            elif s:
+                schedules_list.append({
+                    "id": s.id,
+                    "stage": s.stage.value,
+                    "recipient_role": s.recipient_role,
+                    "original_due_date": format_date_ui(s.original_due_date) if s.original_due_date else format_date_ui(auto_due),
+                    "original_due_date_raw": format_date_db(s.original_due_date) if s.original_due_date else format_date_db(auto_due),
+                    "scheduled_date": format_date_ui(auto_sched) if auto_sched else "-",
+                    "scheduled_date_raw": format_date_db(auto_sched) if auto_sched else None,
+                    "status": s.status.value,
+                    "is_opted_out": s.is_opted_out,
+                    "is_custom_date": s.is_custom_date,
+                    "attempt_count": s.attempt_count,
+                    "last_error": s.last_error,
+                    "cancellation_reason": s.cancellation_reason,
+                    "recipient_email_used": s.recipient_email_used,
+                    "sent_at": s.sent_at.isoformat() if s.sent_at else None,
+                })
+            else:
+                schedules_list.append({
+                    "id": None,
+                    "stage": stg.value,
+                    "recipient_role": STAGE_RECIPIENT_ROLES.get(stg, "Trainee"),
+                    "original_due_date": format_date_ui(auto_due) if auto_due else "-",
+                    "original_due_date_raw": format_date_db(auto_due) if auto_due else None,
+                    "scheduled_date": format_date_ui(auto_sched) if auto_sched else "-",
+                    "scheduled_date_raw": format_date_db(auto_sched) if auto_sched else None,
+                    "status": ScheduleStatus.SCHEDULED.value,
+                    "is_opted_out": False,
+                    "is_custom_date": False,
+                    "attempt_count": 0,
+                    "last_error": None,
+                    "cancellation_reason": None,
+                    "recipient_email_used": None,
+                    "sent_at": None,
+                })
+
         return {
             "trainee": {
                 "trainee_id": t.trainee_id,
@@ -651,26 +759,7 @@ def get_single_trainee(trainee_id: str, user: str = Depends(get_current_admin)):
                 "created_at": format_date_ui(t.created_at.date()) if getattr(t, "created_at", None) else "N/A",
                 "updated_at": format_date_ui(t.updated_at.date()) if getattr(t, "updated_at", None) else "N/A",
             },
-            "schedules": [
-                {
-                    "id": s.id,
-                    "stage": s.stage.value,
-                    "recipient_role": s.recipient_role,
-                    "original_due_date": format_date_ui(s.original_due_date),
-                    "original_due_date_raw": format_date_db(s.original_due_date),
-                    "scheduled_date": format_date_ui(s.scheduled_date),
-                    "scheduled_date_raw": format_date_db(s.scheduled_date),
-                    "status": s.status.value,
-                    "is_opted_out": s.is_opted_out,
-                    "is_custom_date": s.is_custom_date,
-                    "attempt_count": s.attempt_count,
-                    "last_error": s.last_error,
-                    "cancellation_reason": s.cancellation_reason,
-                    "recipient_email_used": s.recipient_email_used,
-                    "sent_at": s.sent_at.isoformat() if s.sent_at else None,
-                }
-                for s in scheds
-            ],
+            "schedules": schedules_list,
             "delivery_attempts": attempts,
         }
     finally:
@@ -966,16 +1055,28 @@ async def preview_import_file(
                 stages_dict = {}
                 for stg, s_data in item.get("stages", {}).items():
                     stg_key = stg.value if hasattr(stg, "value") else str(stg)
-                    stages_dict[stg_key] = {
-                        "date": format_date_ui(s_data.get("scheduled_date")),
+                    dt_val = format_date_ui(s_data.get("scheduled_date"))
+                    entry = {
+                        "date": dt_val,
                         "opt_out": s_data.get("is_opted_out", False),
                         "is_custom": s_data.get("is_custom", False),
                     }
+                    stages_dict[stg_key] = entry
+                    stages_dict[stg_key.lower()] = entry
 
-                # Ensure all 6 stage keys always exist
-                for stage_code in ["initial", "q1", "q2", "q3", "q4", "exit"]:
-                    if stage_code not in stages_dict:
-                        stages_dict[stage_code] = {"date": "-", "opt_out": False, "is_custom": False}
+                # Ensure all 6 stage keys always exist in both upper and lower case
+                eff_doj = item.get("date_of_joining")
+                eff_lwd = item.get("last_working_date") or (calculate_default_lwd(eff_doj) if eff_doj else None)
+                auto_preview = calculate_all_stage_dates(eff_doj, eff_lwd) if (eff_doj and eff_lwd) else {}
+
+                for stg_enum in [EmailStage.INITIAL, EmailStage.Q1, EmailStage.Q2, EmailStage.Q3, EmailStage.Q4, EmailStage.EXIT]:
+                    k_upper = stg_enum.value
+                    k_lower = stg_enum.value.lower()
+                    if k_upper not in stages_dict or stages_dict[k_upper]["date"] == "-":
+                        auto_dt = format_date_ui(auto_preview[stg_enum][1]) if stg_enum in auto_preview else "-"
+                        fallback_entry = {"date": auto_dt, "opt_out": False, "is_custom": False}
+                        stages_dict[k_upper] = fallback_entry
+                        stages_dict[k_lower] = fallback_entry
 
                 staged_items.append({
                     "trainee_id": item["trainee_id"],

@@ -9,7 +9,7 @@ import pandas as pd
 
 from naps_engine.audit import log_audit_event
 from naps_engine.config import APP_TIMEZONE
-from naps_engine.date_engine import calculate_default_lwd, validate_dates
+from naps_engine.date_engine import calculate_all_stage_dates, calculate_default_lwd, validate_dates
 from naps_engine.db import get_schedules_for_trainee, get_trainee, list_trainees
 from naps_engine.models import (
     EmailSchedule,
@@ -696,14 +696,22 @@ def export_trainees_dataframe(conn: sqlite3.Connection) -> pd.DataFrame:
             "confirmed_actual_lwd": "True" if t.status == TraineeStatus.LEFT else "False",
         }
 
+        eff_lwd = t.last_working_date or (calculate_default_lwd(t.date_of_joining) if t.date_of_joining else None)
+        auto_calc = calculate_all_stage_dates(t.date_of_joining, eff_lwd) if (t.date_of_joining and eff_lwd) else {}
+
         for stage, cols in STAGE_COLUMN_MAP.items():
             sched = s_map.get(stage)
-            if sched:
+            if sched and sched.scheduled_date:
                 row[cols["opt_out"]] = "True" if sched.is_opted_out else "False"
                 row[cols["scheduled_date"]] = format_date_ui(sched.scheduled_date)
+            elif sched:
+                row[cols["opt_out"]] = "True" if sched.is_opted_out else "False"
+                auto_sched = auto_calc.get(stage, (None, None))[1]
+                row[cols["scheduled_date"]] = format_date_ui(auto_sched) if auto_sched else ""
             else:
                 row[cols["opt_out"]] = "False"
-                row[cols["scheduled_date"]] = ""
+                auto_sched = auto_calc.get(stage, (None, None))[1]
+                row[cols["scheduled_date"]] = format_date_ui(auto_sched) if auto_sched else ""
 
         rows.append(row)
 
